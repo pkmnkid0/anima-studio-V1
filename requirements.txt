@@ -1,0 +1,38 @@
+flask>=3.0
+requests>=2.31
+pillow>=10.0
+opencv-python-headless>=4.9
+
+# Needed only for the native desktop window (desktop.py / the built
+# Anima Studio.exe). Not needed to run the app in a browser via run.py.
+pywebview>=5.0
+
+# Needed only to build Anima Studio.exe yourself via build_windows.bat.
+# Not needed to just run the app.
+pyinstaller>=6.0
+
+# Optional, only needed for the WD14 auto-tagger in the Caption tab.
+# The app runs fine without these - auto-tagging will just show an
+# error explaining what to install if you try to use it.
+onnxruntime>=1.17
+numpy>=1.24
+
+# Optional, only needed if you pick the "wd-eva02-tagger-2026-canary"
+# tagger model - it ships as a timm/safetensors checkpoint instead of
+# ONNX. Every other tagger model only needs onnxruntime above.
+# torch --index-url https://download.pytorch.org/whl/cpu
+# timm>=1.0
+# safetensors>=0.4
+
+# Optional, only needed for the "AI (UltraSharp)" upscale method in the
+# Edit tab's crop tool. Without these installed, the classical Lanczos /
+# Bicubic / Nearest upscale methods still work; this one shows a clear
+# error telling you to install these if you pick it without them.
+# torch --index-url https://download.pytorch.org/whl/cpu
+# spandrel>=0.3
+
+# Optional, only needed for loss/learning-rate charts in the Monitor
+# tab. Without it, Monitor still shows training status, sample images,
+# and checkpoints - just no charts, with a message saying so.
+tensorboard>=2.15
+flask-cors>=4.0

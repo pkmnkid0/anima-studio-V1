@@ -1,0 +1,20 @@
+# Anima Studio's native backend - dependencies for the SDXL training path.
+#
+# The Anima training path does NOT need anything installed here - it
+# imports and reuses the vendored backend's own already-installed venv
+# (training_backend/sd_scripts/venv, set up via the Train tab's "Set up
+# backend" card), since it's genuinely the same underlying dependencies
+# (torch, transformers, etc.) that vendored code already needs anyway.
+#
+# Install into the SAME venv you'll run this server with:
+#   pip install -r native_backend/requirements.txt
+
+torch>=2.1
+torchvision>=0.16
+diffusers>=0.28
+peft>=0.11
+transformers>=4.40
+accelerate>=0.30
+safetensors>=0.4
+Pillow>=10.0
+flask>=3.0

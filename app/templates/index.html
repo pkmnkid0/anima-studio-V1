@@ -1,0 +1,1358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anima Studio</title>
+<link rel="icon" type="image/svg+xml" href="/static/img/icon.svg">
+<link rel="alternate icon" href="/static/img/favicon.ico">
+<link rel="apple-touch-icon" href="/static/img/icon-256.png">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/explore.css') }}">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ===================== Sidebar ===================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="28" height="28" viewBox="0 0 256 256" aria-hidden="true">
+          <rect width="256" height="256" rx="56" fill="#15171a" stroke="#2a2d33" stroke-width="6"/>
+          <rect x="52" y="52" width="38" height="152" rx="19" fill="#d2a45a"/>
+          <rect x="109" y="82" width="38" height="122" rx="19" fill="#f0cf94"/>
+          <rect x="166" y="52" width="38" height="152" rx="19" fill="#8a6a35"/>
+          <rect x="40" y="112" width="176" height="14" rx="7" fill="#15171a"/>
+        </svg>
+        <span class="brand-name">Anima Studio</span>
+      </div>
+      <div class="brand-sub">DiT LoRA Workshop</div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item" data-view="projects">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 5.5A1.5 1.5 0 0 1 4 4h3l1.5 1.5H12A1.5 1.5 0 0 1 13.5 7v5A1.5 1.5 0 0 1 12 13.5H4A1.5 1.5 0 0 1 2.5 12v-6.5Z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 7.5v4M4 9.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Projects
+        <span class="nav-step">01</span>
+      </button>
+      <button class="nav-item" data-view="explore">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Booru Explorer
+        <span class="nav-step">02</span>
+      </button>
+      <button class="nav-item" data-view="collect">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.2 1.6h4.8A1.5 1.5 0 0 1 14 6.1v6.4A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-8Z" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+        Collect
+        <span class="nav-step">03</span>
+      </button>
+      <button class="nav-item" data-view="edit">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.3 2.3a1.2 1.2 0 0 1 1.7 0l0.7 0.7a1.2 1.2 0 0 1 0 1.7L5.4 13H2.5v-2.9l8.8-7.8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.7 4l2.3 2.3" stroke="currentColor" stroke-width="1.3"/></svg>
+        Edit
+        <span class="nav-step">04</span>
+      </button>
+      <button class="nav-item" data-view="caption">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-2.6 2.1a.4.4 0 0 1-.65-.31V11.5h-.25a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5 6.5h6M5 8.7h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+        Caption
+        <span class="nav-step">05</span>
+      </button>
+      <button class="nav-item" data-view="train">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.9M8 12.3v1.9M14.2 8h-1.9M3.7 8H1.8M12.5 3.5l-1.3 1.3M4.8 11.2l-1.3 1.3M12.5 12.5l-1.3-1.3M4.8 4.8 3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Train
+        <span class="nav-step">06</span>
+      </button>
+      <button class="nav-item" data-view="monitor">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1.5 12.5h13M2.5 12v-3.2l3-3.5 2.5 2.4 4.5-5.2v9.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Monitor
+        <span class="nav-step">07</span>
+      </button>
+      <button class="nav-item" data-view="backend">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="4.2" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="9.3" width="12" height="4.2" rx="1" stroke="currentColor" stroke-width="1.3"/><circle cx="4.6" cy="4.6" r=".8" fill="currentColor"/><circle cx="4.6" cy="11.4" r=".8" fill="currentColor"/></svg>
+        Backend
+        <span class="nav-step be-nav-dot" id="be-nav-dot"></span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn small ghost" id="appsettings-btn" style="justify-content:flex-start" title="Save and restore the app's settings (not training parameters)">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h8l2 2v9H3v-11Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.5 2.5v3.5h4V2.5M5.5 13v-4h5v4" stroke="currentColor" stroke-width="1.2"/></svg>
+        App settings
+      </button>
+      <button class="btn small ghost" id="appearance-btn" style="justify-content:flex-start">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/><circle cx="10" cy="6" r="1" fill="currentColor"/><circle cx="10.5" cy="9.5" r="1" fill="currentColor"/><circle cx="6.5" cy="10" r="1" fill="currentColor"/></svg>
+        Appearance
+      </button>
+      <div class="conn-status" id="backend-status">
+        <span class="conn-dot" id="backend-dot"></span>
+        <span id="backend-status-text">Backend not checked</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== Main ===================== -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Collect<span class="dim">— gather images from booru sites or the web</span></div>
+      <div class="topbar-actions" id="topbar-actions">
+        <!-- Current project. Every tab's folders derive from this, so it
+             lives in the topbar where it's visible from every view rather
+             than buried in the Projects tab. -->
+        <div class="project-switch" id="project-switch">
+          <span class="project-switch-label" title="The project Collect, Caption, Train and Tester all point at">Project</span>
+          <select id="project-switch-select" class="topbar-select" title="Switch the active project">
+            <option value="">No project selected</option>
+          </select>
+          <button class="btn small ghost" id="project-switch-manage" title="Go to the Projects tab">Manage</button>
+        </div>
+        <span class="topbar-divider" aria-hidden="true"></span>
+      </div>
+    </div>
+
+    <!-- Shows the active project across every tab: name, type, and the
+         counts that tell you whether it's actually ready to train. -->
+    <div class="context-bar" id="context-bar" style="display:none">
+      <span class="context-name" id="context-name"></span>
+      <span class="badge" id="context-type"></span>
+      <span class="badge" id="context-model"></span>
+      <span class="context-stats" id="context-stats"></span>
+      <span class="spacer"></span>
+      <span class="context-path mono" id="context-path" title="Project folder on disk"></span>
+      <div class="context-actions">
+        <button class="btn small" id="context-go-caption" title="Open this project's dataset in Caption">Caption</button>
+        <button class="btn small" id="context-go-train" title="Add this project's dataset to Train">Train</button>
+      </div>
+    </div>
+
+    <!-- ---------- PROJECTS ---------- -->
+    <section class="view" id="view-projects">
+      <div class="view-header">
+        <div>
+          <h1>Projects</h1>
+          <p>One small folder per LoRA: just <b>dataset</b> and <b>output</b>. Projects you made before are remembered with the settings you used.</p>
+        </div>
+        <div class="row">
+          <button class="btn small" id="project-refresh-btn">Refresh</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="bar"></span> New project</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <input type="text" id="new-project-name" placeholder="Project name, e.g. Shiori Novella" style="flex:1;min-width:220px">
+          <button class="btn primary" id="new-project-btn">Create</button>
+        </div>
+        <details style="margin-top:10px" id="new-project-more">
+          <summary style="cursor:pointer;font-size:12px;color:var(--text-dim)">More options (type, model, existing dataset folder)</summary>
+          <div class="field-grid cols-4" style="margin-top:10px">
+            <div class="field">
+              <label for="new-project-type">Type</label>
+              <select id="new-project-type">
+                <option value="character">Character</option>
+                <option value="outfit">Outfit</option>
+                <option value="style">Style</option>
+                <option value="concept">Concept</option>
+                <option value="object">Object</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="new-project-model">Model</label>
+              <select id="new-project-model">
+                <option value="anima">Anima</option>
+                <option value="sdxl">SDXL</option>
+              </select>
+            </div>
+            <div class="field span-2">
+              <label for="new-project-dataset">Use an existing dataset folder <span class="hint-dot" title="Optional - links a folder you already have instead of creating an empty dataset folder">?</span></label>
+              <div class="row">
+                <input type="text" id="new-project-dataset" class="mono" placeholder="optional">
+                <button class="btn small" id="new-project-dataset-browse" type="button">Browse</button>
+              </div>
+            </div>
+          </div>
+        </details>
+        <div class="card-hint" style="margin:8px 0 0" id="new-project-status">The type and model you pick are remembered for next time.</div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="gap:8px">
+          <input type="search" id="project-search" placeholder="Search projects — name, type, model, trigger word, folder…" style="flex:1">
+          <span class="card-hint" style="margin:0" id="project-count"></span>
+        </div>
+      </div>
+
+      <div id="projects-empty" class="empty-state" style="display:none">
+        <h3>No projects yet</h3>
+        <p>Create one above — it only needs a name.</p>
+      </div>
+      <div class="project-grid" id="project-grid"></div>
+    </section>
+
+    <!-- ---------- COLLECT ---------- -->
+
+    <!-- ---------- BOORU EXPLORER ---------- -->
+    <section class="view" id="view-explore">
+      <div class="bx">
+        <div class="bx-bar">
+          <select id="bx-source" class="topbar-select" title="Booru site"></select>
+          <div class="bx-search autocomplete-wrap">
+            <input type="text" id="bx-tags" class="mono" placeholder="Search tags - e.g. hatsune_miku 1girl -solo (leave empty to browse)" autocomplete="off" spellcheck="false">
+            <div class="autocomplete-list" id="bx-autocomplete"></div>
+          </div>
+          <select id="bx-rating" class="topbar-select" title="Rating filter">
+            <option value="safe">Safe</option><option value="sensitive">Sensitive</option>
+            <option value="questionable">Questionable</option><option value="explicit">Explicit</option><option value="any">Any</option>
+          </select>
+          <label class="bx-minscore" title="Hide posts below this score">Min score <input type="number" id="bx-minscore" value="0" min="0" step="5"></label>
+          <button class="btn primary" id="bx-search-btn">Search</button>
+          <a class="btn" id="bx-site-link" target="_blank" rel="noopener noreferrer" title="Open this search on the booru's own site">Open on site ↗</a>
+        </div>
+
+        <div class="bx-modes">
+          <div class="bx-chips" id="bx-modes">
+            <button class="bx-chip active" data-order="random">🎲 Random</button>
+            <button class="bx-chip" data-order="popular">🔥 Trending</button>
+            <button class="bx-chip" data-order="latest">🕒 Latest</button>
+            <button class="bx-chip" data-order="score">⭐ Top score</button>
+            <button class="bx-chip" data-order="favorites">♥ Most faved</button>
+          </div>
+          <div class="bx-modes-right">
+            <button class="btn small" id="bx-shuffle">Shuffle</button>
+            <button class="btn small" id="bx-net-btn" title="Sites blocked on your network? Unblock them here">Connection</button>
+            <button class="btn small" id="bx-pools-btn" style="display:none">Pools</button>
+            <button class="btn small" id="bx-saved-btn">Saved searches</button>
+            <button class="btn small" id="bx-blacklist-btn">Blacklist</button>
+          </div>
+        </div>
+        <div class="bx-panel" id="bx-panel" style="display:none"></div>
+
+        <div class="bx-body">
+          <aside class="bx-side" id="bx-side">
+            <div id="bx-taghead"></div>
+            <div id="bx-taglists"></div>
+          </aside>
+          <main class="bx-main">
+            <div class="bx-chars" id="bx-chars"></div>
+            <div class="bx-status" id="bx-status"></div>
+            <div class="bx-grid" id="bx-grid"></div>
+            <div class="bx-pager" id="bx-pager">
+              <button class="btn" id="bx-prev">← Previous</button>
+              <span id="bx-page">Page 1</span>
+              <button class="btn" id="bx-next">Next →</button>
+            </div>
+          </main>
+        </div>
+
+        <div class="bx-selbar" id="bx-selbar" style="display:none">
+          <span id="bx-selcount">0 selected</span>
+          <input type="text" id="bx-dest" class="mono" placeholder="Destination folder" readonly>
+          <button class="btn small" id="bx-browse-dest">Browse…</button>
+          <button class="btn primary" id="bx-add-btn">Add to dataset</button>
+          <button class="btn small" id="bx-clear-sel">Clear</button>
+        </div>
+
+        <div class="bx-viewer" id="bx-viewer" style="display:none">
+          <div class="bx-viewer-inner">
+            <button class="bx-x" id="bx-v-close" title="Close (Esc)">×</button>
+            <button class="bx-nav bx-nav-l" id="bx-v-prev" title="Previous (←)">‹</button>
+            <button class="bx-nav bx-nav-r" id="bx-v-next" title="Next (→)">›</button>
+            <div class="bx-v-stage" id="bx-v-stage"></div>
+            <div class="bx-v-side" id="bx-v-side"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view active" id="view-collect">
+      <div class="view-header">
+        <div>
+          <h1>Collect a dataset</h1>
+          <p>Search a booru by tags, or pull images from a page / URL list. Downloads save the images only (no caption or metadata files).</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="source-tabs" id="source-tabs">
+          <button class="source-tab active" data-source="booru">Booru search</button>
+          <button class="source-tab" data-source="webpage">Web page</button>
+          <button class="source-tab" data-source="urls">URL list</button>
+          <button class="source-tab" data-source="local">Local files</button>
+        </div>
+
+        <div class="booru-subnav" id="booru-subnav" role="tablist" aria-label="Booru tools">
+          <button type="button" class="booru-subtab active" data-booru-subview="builder" role="tab" aria-selected="true">01&nbsp; Dataset Builder</button>
+          <button type="button" class="booru-subtab" data-booru-subview="health" role="tab" aria-selected="false">02&nbsp; Dataset Health</button>
+        </div>
+
+        <div class="booru-subview active" id="booru-subview-builder" data-booru-panel="builder">
+          <div class="subsection-heading">
+            <div><h2>Dataset Builder</h2><p>Search the booru and optionally curate the results into a smart LoRA subset. Discover tags from the character itself, then use them as filters.</p></div>
+            <span class="subsection-badge accent">Search + Curate</span>
+          </div>
+
+          <div class="builder-section">
+            <div class="builder-section-title"><span>1</span><div><strong>Search</strong><small>Start with the character, then add normal booru tags if you want.</small></div></div>
+            <div class="field span-full">
+              <label>Sources <span class="hint-dot" title="Pick more than one to search all of them at once and merge the results">?</span></label>
+              <div class="source-pills" id="collect-source-pills"><!-- filled from /api/collect/sources --></div>
+            </div>
+            <div class="field-grid cols-3" style="margin-top:14px">
+              <div class="field span-2">
+                <label for="collect-tags">Tags <span class="hint-dot" title="Character tag plus any manual booru tags. Example: character_name 1girl">?</span></label>
+                <div class="autocomplete-wrap">
+                  <input type="text" id="collect-tags" placeholder="e.g. character_name" autocomplete="off">
+                  <div class="autocomplete-list" id="collect-autocomplete"></div>
+                </div>
+                <div id="danbooru-tag-limit-hint" class="notice-banner" style="display:none;margin-top:8px;margin-bottom:0"></div>
+              </div>
+              <div class="field">
+                <label for="collect-rating">Rating</label>
+                <select id="collect-rating">
+                  <option value="safe">Safe</option><option value="sensitive">Sensitive</option><option value="questionable">Questionable</option><option value="explicit">Explicit</option><option value="any">Any</option>
+                </select>
+              </div>
+              <div class="field"><label>Results per page</label><input type="number" id="collect-limit" value="40" min="1" max="200"></div>
+              <div class="field" style="align-self:end"><button class="btn" id="discover-tags-btn">Discover tags</button></div>
+              <div class="field" style="align-self:end"><button class="btn primary" id="collect-search-btn">Search</button></div>
+            </div>
+            <div id="tag-discovery-status" class="builder-status" style="display:none"></div>
+          </div>
+
+          <div class="builder-section" id="tag-filter-section">
+            <div class="builder-section-title"><span>2</span><div><strong>Choose filters</strong><small>Tick any tags you want. Smart curation uses images that have the character plus ANY ONE of the ticked tags; the normal Search button still requires all of them together.</small></div></div>
+            <div id="selected-filter-tags" class="selected-filter-tags"></div>
+            <div id="tag-option-groups" class="tag-option-groups">
+              <div class="tag-options-empty">Enter a character and click <b>Discover tags</b> to see tags found on that character.</div>
+            </div>
+          </div>
+
+          <div class="builder-section">
+            <div class="builder-section-title"><span>3</span><div><strong>Smart curation <em>optional</em></strong><small>Turn this on when you want Anima Studio to select the best subset instead of showing every matching post.</small></div></div>
+            <div class="field-grid cols-4">
+              <div class="field"><label class="checkbox-row"><input type="checkbox" id="smart-enabled" checked> Enable smart selection</label></div>
+              <div class="field"><label>Target images</label><input type="number" id="smart-target" value="100" min="1" max="1000"></div>
+              <div class="field"><label>Search pool</label><input type="number" id="smart-pool" value="5000" min="1" max="5000"></div>
+              <div class="field"><label>Minimum resolution</label><input type="number" id="smart-min-resolution" value="512" min="0" step="64"></div>
+            </div>
+            <div class="subsection-actions"><button class="btn primary" id="build-dataset-btn">Search &amp; curate</button><span class="scout-note">Turn smart selection off for a normal booru gallery.</span></div>
+            <div id="smart-dataset-status" class="smart-status" style="display:none"></div>
+          </div>
+        </div>
+
+        <div class="field-grid" style="margin-top:16px; display:none" id="collect-webpage-fields">
+          <div class="field span-2">
+            <label for="collect-page-url">Page URL</label>
+            <input type="text" id="collect-page-url" placeholder="https://example.com/gallery">
+          </div>
+          <div class="field" style="align-self:end">
+            <button class="btn primary" id="collect-scan-btn">Scan page</button>
+          </div>
+        </div>
+
+        <div class="field-grid" style="margin-top:16px; display:none" id="collect-urls-fields">
+          <div class="field span-full">
+            <label for="collect-urls">Image URLs, one per line</label>
+            <textarea id="collect-urls" placeholder="https://example.com/a.jpg&#10;https://example.com/b.png"></textarea>
+          </div>
+          <div class="field">
+            <button class="btn primary" id="collect-urls-btn">Add URLs</button>
+          </div>
+        </div>
+
+        <div class="field-grid" style="margin-top:16px; display:none" id="collect-local-fields">
+          <div class="field span-2">
+            <label for="collect-local-dest-dir">Destination folder</label>
+            <div class="path-input">
+              <input type="text" id="collect-local-dest-dir" class="mono" placeholder="dataset folder">
+              <button class="btn small" id="collect-local-browse-dest">Browse</button>
+            </div>
+          </div>
+          <div class="field span-full">
+            <label for="collect-local-files">Choose images from your computer</label>
+            <input type="file" id="collect-local-files" accept="image/*" multiple>
+          </div>
+          <div class="field">
+            <button class="btn primary" id="collect-local-add-btn">Add to dataset</button>
+            <span class="spinner" id="collect-local-spinner" style="display:none;margin-left:8px"></span>
+          </div>
+          <div class="field span-full" id="collect-local-status" style="font-size:12.5px;color:var(--text-dim)"></div>
+        </div>
+      </div>
+
+      <div class="card" id="collect-results-card" style="display:none">
+        <div class="card-title">
+          <span class="bar"></span> Results
+          <span class="count" id="collect-results-count"></span>
+          <button class="btn small ghost" id="collect-select-all" style="margin-left:auto">Select all</button>
+          <button class="btn small ghost" id="collect-select-none">Clear</button>
+        </div>
+        <div class="result-grid" id="collect-results-grid"></div>
+        <div class="pagination-bar" id="collect-pagination">
+          <button class="btn small" id="collect-prev-btn">◂ Prev</button>
+          <span id="collect-page-indicator">Page 1</span>
+          <button class="btn small" id="collect-next-btn">Next ▸</button>
+        </div>
+      </div>
+
+      <div class="booru-subview" id="booru-subview-health" data-booru-panel="health">
+        <div class="subsection-heading">
+          <div><h2>Smart Dataset Manager</h2><p>Analyze the dataset before training: health score, duplicates, balance and cleanup.</p></div>
+          <span class="subsection-badge accent">Analyze</span>
+        </div>
+        <div class="field-grid cols-3">
+          <div class="field" data-drop="folder">
+            <label for="health-folder">Dataset folder <span class="hint-dot" title="Drop a folder or images onto this row too">?</span></label>
+            <div class="path-input">
+              <input type="text" id="health-folder" class="mono" placeholder="path to an image folder (or drop one here)">
+              <button class="btn small" id="health-browse">Browse</button>
+            </div>
+          </div>
+          <div class="field" style="align-self:end;display:flex;gap:6px">
+            <button class="btn primary" id="health-analyze-btn">Analyze (full)</button>
+            <button class="btn" id="health-quick-btn" title="Skip the slow near-duplicate scan">Quick</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <span class="spinner" id="health-spinner" style="display:none"></span>
+          <span id="health-status" class="card-hint" style="margin:0">Full analysis also scans for near-duplicates (perceptual hash) - slower on big datasets.</span>
+        </div>
+
+        <div id="health-results" style="display:none;margin-top:14px">
+          <div class="field-grid cols-4" id="health-summary"></div>
+
+          <div class="card compact" style="margin-top:12px">
+            <div class="card-title"><span class="bar"></span> Health score <span class="count" id="health-grade"></span></div>
+            <div class="row" style="align-items:center;gap:14px">
+              <div class="health-ring" id="health-ring"><span id="health-score">–</span></div>
+              <div style="flex:1" id="health-penalties"></div>
+            </div>
+          </div>
+
+          <div class="card compact" style="margin-top:12px">
+            <div class="card-title"><span class="bar"></span> Distribution</div>
+            <div class="field-grid cols-2">
+              <div>
+                <div class="section-label">Resolutions</div>
+                <div class="dist-list" id="health-resolutions"></div>
+              </div>
+              <div>
+                <div class="section-label">Aspect ratios</div>
+                <div class="dist-list" id="health-aspects"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card compact" style="margin-top:12px">
+            <div class="card-title"><span class="bar"></span> Balance analyzer</div>
+            <div id="health-balance"></div>
+            <div class="notice-banner" id="health-balance-warnings" style="display:none;margin-top:8px"></div>
+          </div>
+
+          <div class="card compact">
+            <div class="card-title"><span class="bar"></span> Dataset coverage map</div>
+            <p class="card-hint" style="margin-top:0">How well the dataset covers each aspect of the concept - not just how many images exist. Click a row to see the images that evidence it.</p>
+            <div id="health-coverage"></div>
+            <div id="health-coverage-images" style="display:none;margin-top:10px">
+              <div class="section-label" id="health-coverage-images-label"></div>
+              <div class="result-grid" id="health-coverage-images-grid"></div>
+            </div>
+          </div>
+
+          <div class="card compact" style="margin-top:12px">
+            <div class="card-title"><span class="bar"></span> Cleanup plan <span class="count" id="health-cleanup-count"></span></div>
+            <p class="card-hint" style="margin-top:0">Suggested decisions - <strong>nothing is ever deleted without your explicit confirmation</strong>.</p>
+            <div id="health-cleanup-list" style="max-height:280px;overflow-y:auto"></div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn danger" id="health-cleanup-apply" disabled>Remove selected</button>
+              <button class="btn" id="health-cleanup-select-dupes">Select duplicates only</button>
+              <span id="health-cleanup-status" style="font-size:12px;color:var(--text-dim)"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="collect-download-card" style="display:none">
+        <div class="card-title"><span class="bar"></span> Save selection <span class="count" id="collect-selected-count"></span></div>
+        <div class="field-grid cols-3">
+          <div class="field span-2">
+            <label for="collect-dest-dir">Destination folder</label>
+            <div class="path-input">
+              <input type="text" id="collect-dest-dir" class="mono" placeholder="dataset folder">
+              <button class="btn small" id="collect-browse-dest">Browse</button>
+            </div>
+          </div>
+
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="collect-download-btn">Download selected</button>
+          <button class="btn" id="collect-download-all-btn">Download all</button>
+          <span class="spinner" id="collect-download-spinner" style="display:none"></span>
+          <span id="collect-download-status" style="font-size:12.5px;color:var(--text-dim)"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- EDIT ---------- -->
+    <section class="view" id="view-edit">
+      <div class="view-header">
+        <div>
+          <h1>Clean up your images</h1>
+          <p>Paint over a signature, watermark, or stamp and erase it before you caption and train.</p>
+        </div>
+      </div>
+
+      <div class="subset-layout">
+        <aside class="subset-sidebar" id="edit-subset-tabs"></aside>
+        <div class="subset-main">
+          <div class="card">
+            <div class="field-grid cols-3">
+              <div class="field span-2">
+                <label for="edit-folder">Dataset folder</label>
+                <div class="path-input">
+                  <input type="text" id="edit-folder" class="mono" placeholder="path to an image folder">
+                  <button class="btn small" id="edit-browse">Browse</button>
+                  <button class="btn small primary" id="edit-load">Load</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="edit-empty" class="empty-state">
+            <h3>No folder loaded</h3>
+            <p>Choose a folder above, then click any image to open the eraser.</p>
+          </div>
+
+          <div id="edit-nested-hint" class="notice-banner" style="display:none"></div>
+
+          <div id="edit-content" style="display:none">
+            <div class="card">
+              <div class="card-title"><span class="bar"></span> Find duplicates</div>
+              <div class="field-grid cols-3">
+                <div class="field span-2">
+                  <label for="dup-threshold">Similarity threshold <span class="hint-dot" title="Lower = only near-exact matches. Higher = catches more variation (resizes, recompression, minor edits), but may also flag genuinely similar-but-different images.">?</span></label>
+                  <input type="range" id="dup-threshold" min="0" max="20" value="6">
+                  <span id="dup-threshold-value" style="font-size:11.5px;color:var(--text-faint)">6</span>
+                </div>
+                <div class="field" style="align-self:end">
+                  <button class="btn primary" id="dup-scan-btn">Scan for duplicates</button>
+                  <span class="spinner" id="dup-spinner" style="display:none;margin-left:8px"></span>
+                </div>
+              </div>
+              <div id="dup-results" style="margin-top:14px"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title"><span class="bar"></span> Multi-resolution export</div>
+              <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+                Makes smaller copies of every image in this folder (including subfolders) at
+                the resolutions you pick below - lower-resolution training data trains
+                noticeably faster. Captions are copied next to their images. Output goes to
+                "resized images/&lt;folder name&gt; &lt;resolution&gt;" inside this folder - one folder per
+                resolution, named after this folder (e.g. "my art 512" and "my art 1024"), with
+                images and captions together. Subfolders keep their names inside. Your originals
+                are never touched.
+              </p>
+              <div class="row" style="gap:16px;flex-wrap:wrap;align-items:center">
+                <label class="checkbox-row"><input type="checkbox" class="resize-res-check" value="512" checked> 512px</label>
+                <label class="checkbox-row"><input type="checkbox" class="resize-res-check" value="1024" checked> 1024px</label>
+                <label class="checkbox-row"><input type="checkbox" class="resize-res-check" value="1536"> 1536px</label>
+                <input type="text" id="resize-custom" class="mono" placeholder="custom, e.g. 768" style="width:130px">
+                <button class="btn primary" id="resize-start-btn">Start</button>
+              </div>
+              <div class="status-strip" style="margin-top:10px">
+                <span class="conn-dot" id="resize-dot"></span>
+                <span class="label" id="resize-status-text">Not started</span>
+              </div>
+              <div class="progress-track" id="resize-progress-track" style="display:none;margin-top:8px">
+                <div class="progress-fill" id="resize-progress-fill" style="width:0%"></div>
+              </div>
+              <pre class="log-tail" id="resize-errors" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+            </div>
+
+            <div class="card">
+              <div class="card-title"><span class="bar"></span> Images to clean <span class="count" id="edit-grid-count"></span></div>
+              <input type="text" id="edit-search" placeholder="Search by filename…" style="margin-bottom:12px">
+              <div class="caption-grid" id="edit-grid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- CAPTION ---------- -->
+    <section class="view" id="view-caption">
+      <div class="view-header">
+        <div>
+          <h1>Caption your images</h1>
+          <p>Edit tags per image, or apply changes across the whole folder at once.</p>
+        </div>
+      </div>
+
+      <div class="subset-layout">
+        <aside class="subset-sidebar" id="caption-subset-tabs"></aside>
+        <div class="subset-main">
+      <div class="card">
+        <div class="field-grid cols-3">
+          <div class="field span-2">
+            <label for="caption-folder">Dataset folder</label>
+            <div class="path-input">
+              <input type="text" id="caption-folder" class="mono" placeholder="path to an image folder">
+              <button class="btn small" id="caption-browse">Browse</button>
+              <button class="btn small primary" id="caption-load">Load</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="caption-empty" class="empty-state">
+        <h3>No folder loaded</h3>
+        <p>Choose a folder above — either one you just downloaded in Collect, or any existing dataset folder on disk.</p>
+      </div>
+
+      <div id="caption-nested-hint" class="notice-banner" style="display:none"></div>
+
+      <div id="caption-content" style="display:none">
+        <div class="summary-bar">
+          <div class="summary-stat"><span class="v" id="stat-total">0</span><span class="l">images</span></div>
+          <div class="summary-stat"><span class="v" id="stat-captioned">0</span><span class="l">captioned</span></div>
+          <div class="summary-stat"><span class="v" id="stat-uncaptioned">0</span><span class="l">uncaptioned</span></div>
+          <div class="summary-stat"><span class="v" id="stat-unique">0</span><span class="l">unique tags</span></div>
+          <span class="spacer"></span>
+          <div class="pill-group" id="caption-subview-toggle">
+            <button type="button" class="active" data-subview="gallery">Gallery</button>
+            <button type="button" data-subview="tagfreq">Tag Frequency</button>
+            <button type="button" data-subview="rules">Cleanup</button>
+          </div>
+        </div>
+
+        <div id="caption-subview-gallery">
+        <div class="caption-layout">
+          <div>
+            <div class="card compact">
+              <div class="card-title"><span class="bar"></span> Auto-tag with WD14</div>
+              <div class="field-grid cols-3 tight">
+                <div class="field">
+                  <label for="tagger-model">Model</label>
+                  <div class="field-row">
+                    <select id="tagger-model"></select>
+                    <button class="btn small" id="tagger-download-btn">Download</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="tagger-general-thresh">General threshold</label>
+                  <input type="number" id="tagger-general-thresh" value="0.35" step="0.05" min="0" max="1">
+                </div>
+                <div class="field">
+                  <label for="tagger-char-thresh">Character threshold</label>
+                  <input type="number" id="tagger-char-thresh" value="0.75" step="0.05" min="0" max="1">
+                </div>
+                <div class="field">
+                  <label for="tagger-mode">Apply to</label>
+                  <select id="tagger-mode">
+                    <option value="missing_only">Images without captions</option>
+                    <option value="all">All images (overwrite)</option>
+                  </select>
+                </div>
+                <div class="field span-2" style="align-self:end">
+                  <button class="btn primary" id="autotag-btn" disabled>Run auto-tagger</button>
+                  <span class="spinner" id="autotag-spinner" style="display:none;margin-left:8px"></span>
+                </div>
+              </div>
+              <div id="tagger-status-row" class="row" style="margin-top:10px">
+                <span class="badge rating-questionable" id="tagger-status-badge">not downloaded</span>
+                <div class="progress-track" id="tagger-progress-track" style="display:none;flex:1;margin-left:10px">
+                  <div class="progress-fill" id="tagger-progress-fill" style="width:0%"></div>
+                </div>
+                <span id="tagger-progress-text" style="font-size:11.5px;color:var(--text-faint);margin-left:8px"></span>
+              </div>
+              <div id="tagger-deps-row" style="display:none;margin-top:8px">
+                <div class="notice-banner" style="margin-bottom:8px">
+                  This model ships as a timm/safetensors checkpoint instead of ONNX, so it also
+                  needs <code>torch</code>, <code>timm</code>, <code>safetensors</code> and (for PixAI) <code>transformers</code>/<code>torchvision</code>
+                  installed - every other tagger model here works without these.
+                </div>
+                <div class="row">
+                  <button class="btn small primary" id="tagger-deps-install-btn">Install dependencies</button>
+                  <span class="spinner" id="tagger-deps-spinner" style="display:none;margin-left:8px"></span>
+                </div>
+                <pre class="log-tail" id="tagger-deps-log" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+              </div>
+              <p class="card-hint" style="margin-top:8px">Downloads once from Hugging Face (a few hundred MB), then tags fully offline from there on.</p>
+            </div>
+
+            <div class="card compact">
+              <div class="card-title"><span class="bar"></span> Images to caption <span class="count" id="caption-grid-count"></span></div>
+              <input type="text" id="caption-search" placeholder="Search by filename or tag…" style="margin-bottom:10px">
+              <div class="caption-grid" id="caption-grid"></div>
+            </div>
+          </div>
+
+          <div class="sidebar-panel stack">
+            <div class="card compact">
+              <div class="card-title"><span class="bar"></span> Bulk edit</div>
+              <div class="stack">
+                <div class="field">
+                  <label for="bulk-add-tag">Add tag to all</label>
+                  <div class="field-row">
+                    <input type="text" id="bulk-add-tag" placeholder="tag">
+                    <button class="btn small" id="bulk-add-btn">Add</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="bulk-trigger-front">Prepend trigger word <span class="hint-dot" title="Inserted as the FIRST tag of every caption">?</span></label>
+                  <div class="field-row">
+                    <input type="text" id="bulk-trigger-front" placeholder="e.g. shiori">
+                    <button class="btn small primary" id="bulk-trigger-front-btn">Prepend</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="bulk-remove-tag">Remove tag from all</label>
+                  <div class="field-row">
+                    <input type="text" id="bulk-remove-tag" placeholder="tag">
+                    <button class="btn small" id="bulk-remove-btn">Remove</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Find &amp; replace tag</label>
+                  <div class="field-row">
+                    <input type="text" id="bulk-find" placeholder="find">
+                    <input type="text" id="bulk-replace" placeholder="replace">
+                  </div>
+                  <button class="btn small" id="bulk-replace-btn" style="margin-top:6px;align-self:flex-start">Apply</button>
+                </div>
+                <button class="btn small" id="bulk-underscores-btn">Convert underscores → spaces</button>
+              </div>
+            </div>
+
+            <div class="card compact">
+              <div class="card-title"><span class="bar"></span> Top tags <span class="count" id="tag-freq-count"></span></div>
+              <div id="tag-freq-list" style="max-height:360px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div id="caption-subview-tagfreq" style="display:none">
+          <div class="card compact">
+            <div class="card-title">
+              <span class="bar"></span> Tag frequency
+              <span class="count" id="tagfreq-full-count"></span>
+              <div class="pill-group" id="tagfreq-sort-toggle" style="margin-left:auto">
+                <button type="button" class="active" data-sort="count">By count</button>
+                <button type="button" data-sort="az">A–Z</button>
+              </div>
+            </div>
+            <input type="text" id="tagfreq-search" placeholder="Filter tags…">
+            <p class="card-hint" style="margin:8px 0 0">
+              Every tag that would enter the captions, with how many images carry it.
+              <strong>Click a tag to remove it</strong> from all captions (click again to bring it back) — saves instantly.
+            </p>
+            <div class="tag-cloud" id="tagfreq-cloud" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div id="caption-subview-rules" style="display:none">
+          <div class="card compact">
+            <div class="card-title"><span class="bar"></span> Tag variation detection</div>
+            <p class="card-hint" style="margin-top:0">
+              Finds tags that may represent the same concept - e.g. <code>white_hair</code> vs
+              <code>silver_hair</code>. Tick the groups you want to standardize.
+            </p>
+            <div class="row" style="margin-top:8px;gap:6px">
+              <button class="btn" id="variations-scan-btn">Scan for variations</button>
+              <button class="btn primary" id="variations-apply-btn" disabled>Standardize selected</button>
+            </div>
+            <div id="variations-list" style="margin-top:10px"></div>
+          </div>
+
+        </div>
+      </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- TRAIN ---------- -->
+    <section class="view" id="view-train">
+      <div class="view-header">
+        <div>
+          <h1>Train an Anima LoRA</h1>
+          <p>Configure every setting, then hand off to your training backend.</p>
+        </div>
+        <div class="row">
+          <select id="preset-select" style="min-width:160px"><option value="">Load a preset…</option></select>
+          <button class="btn small" id="preset-save-btn">Save preset</button>
+        </div>
+      </div>
+
+      <div class="warning-list" id="train-warnings" style="display:none">
+        <div class="title">Before you train</div>
+        <ul id="train-warnings-list"></ul>
+      </div>
+
+      <div class="train-subtabs" id="train-subtabs">
+        <button class="train-subtab active" data-subtab="dataset" type="button">Dataset</button>
+        <button class="train-subtab" data-subtab="model" type="button">Model &amp; network</button>
+        <button class="train-subtab" data-subtab="training" type="button">Training</button>
+        <button class="train-subtab" data-subtab="output" type="button">Output</button>
+        <button class="train-subtab" data-subtab="advanced" type="button">Advanced</button>
+        <button class="train-subtab" data-subtab="studio" type="button">Studio</button>
+        <button class="train-subtab" data-subtab="queue" type="button">Queue <span class="queue-count" id="queue-count" style="display:none">0</span></button>
+        <button class="train-subtab" data-subtab="backend" type="button">Config preview</button>
+      </div>
+
+      <div class="train-subtab-panel" id="train-panel-dataset"></div>
+      <div class="train-subtab-panel" id="train-panel-model" style="display:none"></div>
+      <div class="train-subtab-panel" id="train-panel-training" style="display:none"></div>
+      <div class="train-subtab-panel" id="train-panel-output" style="display:none"></div>
+      <div class="train-subtab-panel" id="train-panel-advanced" style="display:none"></div>
+      <div class="train-subtab-panel" id="train-panel-studio" style="display:none">
+        <div class="card compact">
+          <div class="card-title"><span class="bar"></span> Images &amp; steps calculator</div>
+          <p class="card-hint" style="margin-top:0">Work out reasonable training settings before starting.</p>
+          <div class="field-grid cols-3 tight">
+            <div class="field">
+              <label for="calc-images">Images</label>
+              <input type="number" id="calc-images" value="147" min="1">
+            </div>
+            <div class="field">
+              <label for="calc-repeats">Repeats</label>
+              <input type="number" id="calc-repeats" value="2" min="1">
+            </div>
+            <div class="field">
+              <label for="calc-epochs">Epochs</label>
+              <input type="number" id="calc-epochs" value="10" min="1">
+            </div>
+            <div class="field">
+              <label for="calc-type">Project type</label>
+              <select id="calc-type">
+                <option value="character">Character</option>
+                <option value="outfit">Outfit</option>
+                <option value="style">Style</option>
+                <option value="concept">Concept</option>
+                <option value="object">Object</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="calc-batch">Batch size</label>
+              <input type="number" id="calc-batch" value="1" min="1">
+            </div>
+            <div class="field">
+              <label for="calc-gradacc">Grad accum</label>
+              <input type="number" id="calc-gradacc" value="1" min="1">
+            </div>
+            <div class="field">
+              <label for="calc-sps">Steps/sec</label>
+              <input type="number" id="calc-sps" value="0.8" min="0.01" step="0.1">
+            </div>
+            <div class="field" style="align-self:end">
+              <button class="btn primary" id="calc-run-btn">Calculate</button>
+            </div>
+          </div>
+          <div id="calc-results" style="display:none;margin-top:12px">
+            <div class="field-grid cols-4" id="calc-stats"></div>
+            <div class="notice-banner" id="calc-warnings" style="display:none;margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><span class="bar"></span> Training history <span class="count" id="history-count"></span></div>
+          <div class="row" style="margin-top:2px">
+            <button class="btn small" id="history-refresh-btn">Refresh</button>
+            <button class="btn small" id="history-compare-btn" disabled>Compare selected</button>
+          </div>
+          <div id="history-list" style="margin-top:10px"></div>
+          <div id="history-compare" style="display:none;margin-top:12px">
+            <div class="section-label">Run comparison</div>
+            <div class="table-wrap"><table class="data-table" id="history-compare-table"></table></div>
+          </div>
+        </div>
+
+        <div class="card compact">
+          <div class="card-title"><span class="bar"></span> Package LoRA</div>
+          <p class="card-hint" style="margin-top:0">Bundle a trained LoRA into a shareable folder (and zip).</p>
+          <div class="field-grid cols-3 tight">
+            <div class="field span-full">
+              <label for="package-lora">LoRA file (.safetensors)</label>
+              <div class="path-input">
+                <input type="text" id="package-lora" class="mono" placeholder="C:\models\loras\my_character.safetensors">
+                <button class="btn small" id="package-lora-browse">Browse</button>
+              </div>
+            </div>
+            <div class="field span-2">
+              <label for="package-out">Output folder</label>
+              <div class="path-input">
+                <input type="text" id="package-out" class="mono" placeholder="where to create the package">
+                <button class="btn small" id="package-out-browse">Browse</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="studio-model">Model</label>
+              <select id="studio-model">
+                <option value="anima">Anima</option>
+                <option value="sdxl">SDXL</option>
+              </select>
+            </div>
+            <div class="field span-2">
+              <label for="package-name">Package name</label>
+              <input type="text" id="package-name" placeholder="defaults to the file name">
+            </div>
+            <div class="field">
+              <label for="package-triggers">Trigger words <span class="hint-dot" title="Comma-separated">?</span></label>
+              <input type="text" id="package-triggers" placeholder="shiori, shiori_novella">
+            </div>
+            <div class="field span-full">
+              <label for="package-desc">Description</label>
+              <input type="text" id="package-desc" placeholder="A character LoRA trained with Anima Studio">
+            </div>
+            <div class="field span-full">
+              <label for="package-dataset">Dataset folder <span class="hint-dot" title="Optional - records the dataset hash and image count">?</span></label>
+              <div class="path-input">
+                <input type="text" id="package-dataset" class="mono" placeholder="optional">
+                <button class="btn small" id="package-dataset-browse">Browse</button>
+              </div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn primary" id="package-run-btn">Package LoRA</button>
+            <span class="spinner" id="package-spinner" style="display:none"></span>
+            <span id="package-status" style="font-size:12px;color:var(--text-dim)"></span>
+          </div>
+        </div>
+      </div>
+      <div class="train-subtab-panel" id="train-panel-queue" style="display:none">
+        <div class="card">
+          <div class="card-title"><span class="bar"></span> Training queue</div>
+          <p class="scout-note" style="margin:0 0 12px">Line up several runs and let them train one after another. Each job keeps a snapshot of the config as it is <b>when you add it</b>, so you can change settings (or switch datasets) and add the next one right away. Runs use the backend URL from the Backend tab.</p>
+          <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="queue-name" placeholder="Name for this run (optional)" style="flex:1;min-width:200px">
+            <button class="btn primary" id="queue-add-btn" type="button">+ Add current config to queue</button>
+            <button class="btn" id="queue-pause-btn" type="button">Pause queue</button>
+            <button class="btn small" id="queue-clear-btn" type="button">Clear finished</button>
+          </div>
+          <div class="queue-note" id="queue-note" style="display:none"></div>
+          <div class="queue-list" id="queue-list"></div>
+        </div>
+      </div>
+      <div class="train-subtab-panel" id="train-panel-backend" style="display:none">
+        <div class="card">
+          <div class="card-title"><span class="bar"></span> Config preview</div>
+          <p class="card-hint" style="margin-top:0">The generated training config for the current settings.</p>
+          <div class="toml-preview" id="toml-preview">Fill in the settings above to see the generated config.</div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" id="preview-refresh-btn">Refresh preview</button>
+            <button class="btn" id="download-toml-btn">Download .toml</button>
+            <button class="btn" id="load-toml-btn">Load .toml (upload)</button>
+            <input type="file" id="load-toml-file" accept=".toml" style="display:none">
+            <button class="btn" id="load-toml-disk-btn">Load .toml from disk…</button>
+            <button class="btn" id="save-toml-disk-btn">Save .toml to disk…</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ---------- BACKEND ---------- -->
+    <section class="view be-view" id="view-backend">
+      <div class="view-header">
+        <div>
+          <h1>Training backend</h1>
+          <p>The engine that actually trains. It installs once, then starts with the app every time.</p>
+        </div>
+      </div>
+
+      <div class="be-hero" id="be-hero" data-state="offline">
+        <div class="be-orb"><span></span></div>
+        <div class="be-hero-text">
+          <div class="be-title" id="be-title">Checking…</div>
+          <div class="be-sub" id="be-sub"></div>
+          <div class="be-progress" id="be-progress" style="display:none"><div class="be-progress-fill" id="be-progress-fill"></div></div>
+          <div class="be-now mono" id="be-now"></div>
+        </div>
+        <div class="be-hero-actions">
+          <button class="btn primary big" id="be-start">Start backend</button>
+          <button class="btn danger big" id="be-stop" style="display:none">Stop</button>
+          <button class="btn big" id="be-check">Check connection</button>
+        </div>
+      </div>
+
+      <div class="be-steps">
+        <div class="be-step" id="be-step-install"><span class="be-num">1</span><div><b>Installed</b><small id="be-step-install-t">—</small></div></div>
+        <div class="be-step" id="be-step-run"><span class="be-num">2</span><div><b>Process running</b><small id="be-step-run-t">—</small></div></div>
+        <div class="be-step" id="be-step-conn"><span class="be-num">3</span><div><b>Connected</b><small id="be-step-conn-t">—</small></div></div>
+      </div>
+
+        <div class="card be-card">
+          <div class="card-title"><span class="bar"></span> Install</div>
+          <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            Anima Studio's own training backend (<code>native_backend/</code>) needs a couple of
+            dependency sets installed once. Click below to run both in sequence: the Anima
+            model's own ML stack (PyTorch, etc. - a multi-GB install that has to match your GPU,
+            so it can't be frozen into the app itself), then <code>native_backend</code>'s SDXL
+            dependencies into that same environment. The first part can ask its own questions
+            along the way; if it does, type your answer in the box under the log and click Send.
+          </p>
+          <div class="row">
+            <button class="btn primary" id="backend-setup-start">Install dependencies</button>
+            <span style="font-size:11.5px;color:var(--text-faint);margin-left:8px" id="backend-setup-target-label"></span>
+          </div>
+          <div class="status-strip" style="margin-top:10px">
+            <span class="conn-dot" id="backend-setup-dot"></span><span class="label" id="backend-setup-status-text" style="margin-left:6px">Not started</span>
+          </div>
+          <div class="progress-track" id="backend-setup-progress-track" style="display:none;margin-top:8px">
+            <div class="progress-fill" id="backend-setup-progress-fill" style="width:0%"></div>
+          </div>
+          <pre class="log-tail" id="backend-setup-log" style="display:none;max-height:220px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+          <div class="row" id="backend-setup-input-row" style="display:none;margin-top:8px;gap:6px">
+            <input type="text" id="backend-setup-input" class="mono" placeholder="type your answer to the installer's prompt, e.g. y" style="flex:1">
+            <button class="btn small" id="backend-setup-send">Send</button>
+          </div>
+        </div>
+
+        <div class="card be-card">
+          <div class="card-title"><span class="bar"></span> Launcher &amp; connection</div>
+          <div class="field-grid cols-3">
+            <div class="field span-2">
+              <label for="backend-launch-dir">Backend folder <span class="hint-dot" title="The Anima Studio project's own root folder - native_backend/server.py runs as a module from here">?</span></label>
+              <div class="path-input">
+                <input type="text" id="backend-launch-dir" class="mono" placeholder="path to the Anima Studio project folder">
+                <button class="btn small ghost" id="backend-launch-browse">Browse</button>
+              </div>
+            </div>
+            <div class="field" style="align-self:end">
+              <label class="checkbox-row">
+                <input type="checkbox" id="backend-launch-autostart">
+                Auto-start with Anima Studio
+              </label>
+            </div>
+            <div class="field span-2">
+              <label for="backend-launch-command">Start command <span class="hint-dot" title="Runs native_backend/server.py using the venv set up above, which has both training paths' dependencies installed">?</span></label>
+              <input type="text" id="backend-launch-command" class="mono" placeholder="python -m native_backend.server">
+            </div>
+            <div class="field" style="align-self:end">
+              <button class="btn primary" id="backend-launch-start">Launch backend</button>
+              <button class="btn danger" id="backend-launch-stop" style="display:none">Stop</button>
+            </div>
+          </div>
+          <div class="status-strip" style="margin-top:10px">
+            <span class="conn-dot" id="backend-launch-dot"></span>
+            <span class="label" id="backend-launch-status-text">Not running</span>
+          </div>
+          <pre class="log-tail" id="backend-launch-log" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+          <div class="field-grid cols-3" style="margin-top:16px">
+            <div class="field span-2">
+              <label for="backend-url">Backend URL <span class="hint-dot" title="Where Anima Studio talks to the backend once it's running - only change this if you launched it on a different port">?</span></label>
+              <input type="text" id="backend-url" class="mono" value="http://127.0.0.1:8000">
+            </div>
+            <div class="field" style="align-self:end">
+              <button class="btn" id="backend-check-btn">Check connection</button>
+            </div>
+          </div>
+        </div>
+    </section>
+
+    <!-- ---------- MONITOR ---------- -->
+    <section class="view" id="view-monitor">
+      <div class="view-header">
+        <div>
+          <h1>Monitor training</h1>
+          <p>Watch samples, checkpoints, and loss as a run progresses.</p>
+        </div>
+        <div class="row">
+          <button class="btn small" id="monitor-refresh-btn">Refresh now</button>
+          <label class="checkbox-row">
+            <input type="checkbox" id="monitor-auto-refresh" checked>
+            Auto-refresh
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="field-grid cols-3">
+          <div class="field span-2">
+            <label for="monitor-output-dir">Output folder <span class="hint-dot" title="The same output folder set in the Train tab's Saving section">?</span></label>
+            <div class="path-input">
+              <input type="text" id="monitor-output-dir" class="mono" placeholder="output folder for this run">
+              <button class="btn small" id="monitor-browse-output">Browse</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="monitor-logging-dir">Logging folder <span class="hint-dot" title="Only needed for loss charts - the folder set in the Train tab's Logging section">?</span></label>
+            <div class="path-input">
+              <input type="text" id="monitor-logging-dir" class="mono" placeholder="optional, for loss charts">
+              <button class="btn small" id="monitor-browse-logging">Browse</button>
+            </div>
+          </div>
+        </div>
+        <div class="status-strip" style="margin-top:14px">
+          <span class="conn-dot" id="monitor-status-dot"></span>
+          <span class="label" id="monitor-status-text">Not checked</span>
+        </div>
+        <div id="monitor-progress-row" style="display:none;margin-top:10px">
+          <div class="row" style="justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:6px">
+            <span id="monitor-progress-steps"></span>
+            <span id="monitor-progress-loss"></span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="monitor-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="bar"></span> Loss / metrics</div>
+        <div id="monitor-chart-empty" class="card-hint" style="margin:0">Set a logging folder above to see charts here.</div>
+        <div id="monitor-charts"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="bar"></span> Latest samples <span class="count" id="monitor-samples-count"></span></div>
+        <div id="monitor-samples-empty" class="card-hint" style="margin:0">No sample images yet - enable sample generation in the Train tab's Sampling section to see previews here as training runs.</div>
+        <div class="result-grid" id="monitor-samples-grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="bar"></span> Checkpoints <span class="count" id="monitor-checkpoints-count"></span></div>
+        <div id="monitor-checkpoints-empty" class="card-hint" style="margin:0">No checkpoints saved yet.</div>
+        <div id="monitor-checkpoints-list"></div>
+      </div>
+    </section>
+
+        </div>
+</div>
+
+<!-- Folder browser modal -->
+<div class="modal-backdrop" id="folder-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Choose a folder</h3>
+    </div>
+    <div class="modal-roots" id="folder-modal-roots"></div>
+    <div class="modal-breadcrumb" id="folder-modal-path"></div>
+    <div class="modal-body" id="folder-modal-list"></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="folder-modal-cancel">Cancel</button>
+      <button class="btn" id="folder-modal-new">New folder</button>
+      <button class="btn primary" id="folder-modal-choose">Use this folder</button>
+    </div>
+  </div>
+</div>
+
+<!-- File browser modal (pick a single file, e.g. a .toml to load) -->
+<div class="modal-backdrop" id="file-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Choose a file</h3>
+    </div>
+    <div class="modal-roots" id="file-modal-roots"></div>
+    <div class="modal-breadcrumb" id="file-modal-path"></div>
+    <div class="modal-body" id="file-modal-list"></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="file-modal-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Booru API keys modal -->
+
+
+<div class="lightbox-backdrop" id="lightbox">
+  <div class="lightbox-inner">
+    <img id="lightbox-img" src="" alt="">
+    <div class="lightbox-caption" id="lightbox-caption" style="display:none"></div>
+    <button class="btn primary" id="lightbox-action" style="display:none"></button>
+  </div>
+</div>
+
+<!-- Appearance / theme customization -->
+<div class="modal-backdrop" id="appearance-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Appearance</h3>
+    </div>
+    <div class="modal-body">
+      <div class="stack" style="padding:4px 4px 8px">
+        <div class="field-grid cols-2">
+          <div class="field">
+            <label>Background</label>
+            <div class="field-row">
+              <input type="color" id="theme-bg-color" value="#14151b">
+              <input type="text" id="theme-bg-hex" class="mono" value="#14151b">
+            </div>
+          </div>
+          <div class="field">
+            <label>Accent color</label>
+            <div class="field-row">
+              <input type="color" id="theme-accent-color" value="#ce9e5a">
+              <input type="text" id="theme-accent-hex" class="mono" value="#ce9e5a">
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Presets</label>
+          <div class="theme-preset-row" id="theme-presets"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="theme-reset-btn" style="margin-right:auto">Reset to default</button>
+      <button class="btn" id="appearance-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Magic eraser editor -->
+<div class="modal-backdrop" id="eraser-modal">
+  <div class="modal eraser-modal">
+    <div class="modal-head">
+      <h3>Magic eraser</h3>
+      <span class="spacer"></span>
+      <span class="card-hint" style="margin:0">Paint over the area to remove, then click Erase.</span>
+    </div>
+    <div class="eraser-toolbar">
+      <div class="pill-group" id="eraser-tool-toggle">
+        <button type="button" class="active" data-tool="brush">Brush</button>
+        <button type="button" data-tool="rect">Rectangle</button>
+        <button type="button" data-tool="crop">Crop</button>
+      </div>
+      <label class="row" id="eraser-brush-size-row" style="gap:6px">
+        <span style="font-size:12px;color:var(--text-dim)">Brush size</span>
+        <input type="range" id="eraser-brush-size" min="6" max="120" value="28">
+      </label>
+      <label class="row" id="eraser-method-row" style="gap:6px">
+        <span style="font-size:12px;color:var(--text-dim)">Method</span>
+        <select id="eraser-method" style="width:auto">
+          <option value="telea">Telea</option>
+          <option value="ns">Navier-Stokes</option>
+        </select>
+      </label>
+      <label class="row" id="eraser-aspect-row" style="gap:6px;display:none">
+        <span style="font-size:12px;color:var(--text-dim)">Aspect</span>
+        <select id="eraser-aspect" style="width:auto">
+          <option value="free">Free</option>
+          <option value="1:1">Square 1:1</option>
+          <option value="4:3">4:3</option>
+          <option value="3:4">3:4</option>
+          <option value="16:9">16:9</option>
+          <option value="9:16">9:16</option>
+        </select>
+      </label>
+      <label class="row" id="eraser-upscale-row" style="gap:6px;display:none">
+        <span style="font-size:12px;color:var(--text-dim)">Upscale</span>
+        <select id="eraser-upscale-factor" style="width:auto">
+          <option value="1">Off</option>
+          <option value="1.5">1.5×</option>
+          <option value="2" selected>2×</option>
+          <option value="3">3×</option>
+          <option value="4">4×</option>
+        </select>
+        <select id="eraser-upscale-method" style="width:auto">
+          <option value="lanczos">Lanczos (sharp)</option>
+          <option value="bicubic">Bicubic (soft)</option>
+          <option value="ultrasharp">AI (UltraSharp)</option>
+        </select>
+      </label>
+      <span class="row" id="eraser-upscaler-status-row" style="gap:6px;display:none">
+        <span class="badge rating-questionable" id="eraser-upscaler-badge">not downloaded</span>
+        <button class="btn small" id="eraser-upscaler-download-btn">Download</button>
+        <button class="btn small primary" id="eraser-upscaler-deps-btn" style="display:none">Install dependencies</button>
+        <span class="spinner" id="eraser-upscaler-deps-spinner" style="display:none"></span>
+        <div class="progress-track" id="eraser-upscaler-progress-track" style="display:none;width:100px">
+          <div class="progress-fill" id="eraser-upscaler-progress-fill" style="width:0%"></div>
+        </div>
+        <span id="eraser-upscaler-progress-text" style="font-size:11px;color:var(--text-faint)"></span>
+      </span>
+      <pre class="log-tail" id="eraser-upscaler-deps-log" style="display:none;max-height:120px;overflow:auto;font-size:11px;width:100%"></pre>
+      <div class="row" style="gap:4px">
+        <button class="btn small icon-only" id="eraser-zoom-out" title="Zoom out">−</button>
+        <button class="btn small ghost" id="eraser-zoom-label" title="Reset to fit" style="min-width:52px">Fit</button>
+        <button class="btn small icon-only" id="eraser-zoom-in" title="Zoom in">+</button>
+      </div>
+      <span class="spacer"></span>
+      <label class="checkbox-row" title="Write the result to a new file instead of replacing the original">
+        <input type="checkbox" id="eraser-save-as-copy">
+        Save as copy
+      </label>
+      <button class="btn small ghost" id="eraser-clear-mask">Clear</button>
+      <button class="btn small ghost" id="eraser-undo">Undo</button>
+    </div>
+    <div class="row" id="eraser-crop-dest-row" style="display:none;gap:8px;padding:0 14px 10px">
+      <label class="checkbox-row" title="File the crop straight into another dataset folder (e.g. a new training subset) instead of this one">
+        <input type="checkbox" id="eraser-crop-to-subset">
+        Send crop to folder / subset
+      </label>
+      <div class="path-input" id="eraser-crop-dest-wrap" style="display:none;flex:1;max-width:420px">
+        <input type="text" id="eraser-crop-dest-dir" class="mono" placeholder="destination folder">
+        <button class="btn small ghost" id="eraser-crop-dest-browse">Browse / new…</button>
+      </div>
+    </div>
+    <div class="eraser-canvas-wrap" id="eraser-canvas-wrap">
+      <canvas id="eraser-canvas"></canvas>
+      <div class="eraser-cursor" id="eraser-cursor"></div>
+      <button class="eraser-nav-arrow left" id="eraser-prev-overlay" title="Previous image (←)">‹</button>
+      <button class="eraser-nav-arrow right" id="eraser-next-overlay" title="Next image (→)">›</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn danger" id="eraser-revert" style="margin-right:auto">Revert to original</button>
+      <button class="btn danger" id="eraser-delete-modal" title="Delete this image and its caption file">Delete</button>
+      <button class="btn ghost" id="eraser-close">Close</button>
+      <button class="btn primary" id="eraser-apply">Erase</button>
+      <button class="btn primary" id="eraser-crop-apply" style="display:none">Apply crop</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-stack"></div>
+
+<!-- Always-visible training bar: compact when idle (expands on hover), full progress view while training -->
+<!-- Training error panel: sits above the training bar, never on top of its buttons -->
+<div class="train-error" id="train-error" hidden>
+  <div class="train-error-head">
+    <span class="train-error-title" id="train-error-title">Training failed</span>
+    <span class="spacer"></span>
+    <button class="btn small ghost" id="train-error-copy" type="button">Copy</button>
+    <button class="btn small ghost" id="train-error-dismiss" type="button">Dismiss</button>
+  </div>
+  <div class="train-error-msg" id="train-error-msg"></div>
+  <details class="train-error-log"><summary>Backend log</summary><pre id="train-error-log"></pre></details>
+</div>
+
+<div class="train-dock compact idle" id="train-dock" role="region" aria-label="Training controls" tabindex="-1">
+  <span class="conn-dot" id="train-conn-dot"></span>
+  <span class="dock-pill" id="dock-pill">&#9654; Train</span>
+  <span class="label dock-extra" id="train-conn-text">Not checked</span>
+  <div class="dock-live" id="dock-live">
+    <div class="dock-live-top">
+      <span class="dock-title" id="dock-title">Training…</span>
+      <span class="dock-stats" id="dock-stats"></span>
+    </div>
+    <div class="dock-track"><div class="dock-fill" id="dock-fill"></div></div>
+    <div class="dock-sub" id="dock-sub"></div>
+  </div>
+  <span class="spacer"></span>
+  <button class="dock-chip" id="dock-queue-chip" type="button" title="Open the training queue" hidden></button>
+  <button class="btn dock-keep" id="queue-bar-btn" type="button" title="Save the Train-tab settings as a job and train it after the ones already queued">+ Add to queue</button>
+  <button class="btn primary dock-extra" id="start-training-btn" type="button" title="Start training with the settings on the Train tab">Start training</button>
+  <button class="btn danger" id="stop-training-btn" type="button" style="display:none">Stop</button>
+</div>
+
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/context.js') }}"></script>
+<script src="{{ url_for('static', filename='js/appsettings.js') }}"></script>
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+<script src="{{ url_for('static', filename='js/projects.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/explore.js') }}"></script>
+<script src="{{ url_for('static', filename='js/collect.js') }}"></script>
+<script src="{{ url_for('static', filename='js/edit.js') }}"></script>
+<script src="{{ url_for('static', filename='js/caption.js') }}"></script>
+<script src="{{ url_for('static', filename='js/train.js') }}"></script>
+<script src="{{ url_for('static', filename='js/studio.js') }}"></script>
+<script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/backend.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
