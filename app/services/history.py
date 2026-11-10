@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -15,6 +16,10 @@ from pathlib import Path
 from .. import config
 
 _HISTORY = config.DATA_DIR / "training_history.jsonl"
+
+# Read-modify-writes come from several places (run finish, delete from the
+# Train tab); serialize them and land writes atomically.
+_lock = threading.Lock()
 
 
 def _read_all() -> list[dict]:
@@ -33,9 +38,11 @@ def _read_all() -> list[dict]:
 
 def _write_all(runs: list[dict]) -> None:
     _HISTORY.parent.mkdir(parents=True, exist_ok=True)
-    _HISTORY.write_text(
+    tmp = _HISTORY.with_name(_HISTORY.name + ".tmp")
+    tmp.write_text(
         "".join(json.dumps(r, sort_keys=False) + "\n" for r in runs),
         encoding="utf-8")
+    tmp.replace(_HISTORY)
 
 
 def dataset_hash(folder: str) -> str:
@@ -60,9 +67,10 @@ def record(run: dict) -> dict:
     entry.setdefault("finished", time.time())
     if "dataset_hash" not in entry and entry.get("dataset_folder"):
         entry["dataset_hash"] = dataset_hash(entry["dataset_folder"])
-    runs = _read_all()
-    runs.append(entry)
-    _write_all(runs)
+    with _lock:
+        runs = _read_all()
+        runs.append(entry)
+        _write_all(runs)
     return entry
 
 
@@ -78,11 +86,12 @@ def get_run(run_id: str) -> dict | None:
 
 
 def delete_run(run_id: str) -> bool:
-    runs = _read_all()
-    kept = [r for r in runs if r.get("id") != run_id]
-    if len(kept) == len(runs):
-        return False
-    _write_all(kept)
+    with _lock:
+        runs = _read_all()
+        kept = [r for r in runs if r.get("id") != run_id]
+        if len(kept) == len(runs):
+            return False
+        _write_all(kept)
     return True
 
 

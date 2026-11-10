@@ -8,7 +8,7 @@ exact engine the user already has installed per that project's README.
 
 Protocol (reverse-engineered from the reference app's MainUI.py):
   POST {url}/validate   body: {"args", "dataset", "accelerate"}  -> {"tags": {...}}
-  GET  {url}/train       params: train_mode, sdxl, flux, anima, accelerate_*
+  GET  {url}/train       params: train_mode, sdxl, flux, anima, moss, kohaku, accelerate_*
   GET  {url}/is_training -> {"training": bool, "errored": bool}
   GET  {url}/stop_training
   GET  {url}/check_path   params: path -> {"exists": bool}
@@ -81,6 +81,8 @@ def start_training(
     has_flux: bool,
     has_anima: bool,
     accelerate: dict | None = None,
+    has_moss: bool = False,
+    has_kohaku: bool = False,
 ) -> None:
     url = _clean(url)
     params = {
@@ -88,6 +90,8 @@ def start_training(
         "sdxl": str(bool(has_sdxl)),
         "flux": str(bool(has_flux)),
         "anima": str(bool(has_anima)),
+        "moss": str(bool(has_moss)),
+        "kohaku": str(bool(has_kohaku)),
     }
     accelerate = accelerate or {}
     if accelerate.get("enabled"):

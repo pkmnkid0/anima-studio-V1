@@ -1,23 +1,27 @@
 /* ===================== App shell ===================== */
 
 .app-shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
-  grid-template-rows: 100vh;
-}
-
-/* --- Sidebar --- */
-.sidebar {
-  background: var(--bg-raised);
-  border-right: 1px solid var(--border-soft);
   display: flex;
   flex-direction: column;
-  padding: 22px 14px;
+  height: 100vh;
 }
 
-.brand {
-  padding: 4px 8px 18px;
+/* --- Top bar: brand, the main tabs, then the project switcher and the app's own buttons --- */
+.topnav {
+  flex: none;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 5;
 }
+
+.brand { padding: 0; flex: none; }
 
 .brand-mark {
   display: flex;
@@ -33,37 +37,30 @@
   font-size: 17px;
   letter-spacing: -0.01em;
   color: var(--text);
-}
-
-.brand-sub {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--text-faint);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .nav {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex: none;
   gap: 2px;
-  margin-top: 6px;
+  margin: 0;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 12px;
+  gap: 7px;
+  padding: 7px 11px;
   border-radius: var(--radius-md);
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   border: 1px solid transparent;
   background: none;
-  width: 100%;
-  text-align: left;
+  white-space: nowrap;
   position: relative;
   transition: background 0.14s var(--ease), color 0.14s var(--ease), border-color 0.14s var(--ease);
 }
@@ -81,32 +78,17 @@
   border-color: var(--accent-border);
 }
 
-.nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: -14px; top: 50%;
-  transform: translateY(-50%);
-  width: 3px; height: 18px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-}
+.nav-item .nav-step { display: none; }
+.nav-item .be-nav-dot { display: inline-block; margin-left: 2px; }
 
-.nav-item .nav-step {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
-  margin-left: auto;
-}
-
-.nav-item.active .nav-step { color: var(--accent); }
-
-.sidebar-footer {
-  margin-top: auto;
-  padding: 10px 8px 2px;
+.topnav-tools {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  flex: none;
 }
+
+.icon-btn { width: 32px; height: 32px; padding: 0; justify-content: center; }
 
 .conn-status {
   display: flex;
@@ -133,7 +115,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -172,6 +155,7 @@
 }
 
 .project-switch-label {
+  display: none;
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
@@ -308,6 +292,12 @@
   .context-path { display: none; }
 }
 
+/* the bar narrows in steps so nothing ever overlaps: connection text and brand name go first, then the names of the
+   tabs you are not on (icons stay), then every name */
+@media (max-width: 1500px) { #backend-status-text, .project-switch-label, .brand-name { display: none; } }
+@media (max-width: 1290px) { .nav-item:not(.active) .nav-label { display: none; } .nav-item { padding: 7px 9px; } }
+@media (max-width: 1040px) { .nav-label { display: none; } .nav-item { padding: 8px 10px; } .topbar-select { min-width: 130px; } }
+
 @media (max-width: 900px) {
   .context-bar, .view, .topbar { padding-left: 18px; padding-right: 18px; }
   .topbar-select { min-width: 150px; }
@@ -323,3 +313,10 @@
 .row { display: flex; align-items: center; gap: 10px; }
 .row.wrap { flex-wrap: wrap; }
 .spacer { flex: 1; }
+
+/* update-available dot on the App settings button */
+#appsettings-btn.has-update { position: relative; }
+#appsettings-btn.has-update::after {
+  content: ""; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--accent, #f0cf94); box-shadow: 0 0 0 2px var(--bg, #14151c);
+}

@@ -46,7 +46,14 @@ def is_busy(job_id: str) -> bool:
         return bool(job and job["stage"] == "installing")
 
 
-def start(job_id: str, packages: list[str], extra_pip_args: list[str] | None = None) -> dict:
+def start(job_id: str, packages: list[str], extra_pip_args: list[str] | None = None,
+          python: str | None = None) -> dict:
+    """Run `pip install <packages>` in the background.
+
+    `python` picks the interpreter to install into: the app's own by default,
+    or - for features that borrow the training backend's environment - the
+    backend venv's interpreter.
+    """
     if not packages:
         raise InstallError("No packages given.")
     if is_busy(job_id):
@@ -55,7 +62,8 @@ def start(job_id: str, packages: list[str], extra_pip_args: list[str] | None = N
     with _lock:
         _jobs[job_id] = {"stage": "installing", "log": [], "packages": list(packages), "error": None}
 
-    threading.Thread(target=_run, args=(job_id, packages, extra_pip_args or []), daemon=True).start()
+    threading.Thread(target=_run, args=(job_id, packages, extra_pip_args or [], python),
+                     daemon=True).start()
     return status(job_id)
 
 
@@ -77,12 +85,21 @@ def _set_stage(job_id: str, stage: str, error: str | None = None) -> None:
             job["error"] = error
 
 
-def _run(job_id: str, packages: list[str], extra_pip_args: list[str]) -> None:
+def _run(job_id: str, packages: list[str], extra_pip_args: list[str], python: str | None = None) -> None:
     try:
-        args = [sys.executable, "-m", "pip", "install", *extra_pip_args, *packages]
+        if python is None and getattr(sys, "frozen", False):
+            raise InstallError(
+                "Anima Studio is running as a packaged app, which has no Python for "
+                "pip to install into - install these packages into the backend's "
+                "Python manually, then restart Anima Studio.")
+        args = [python or sys.executable, "-m", "pip", "install", *extra_pip_args, *packages]
         _append(job_id, f"Running: {' '.join(args)}")
         _append(job_id, "")
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        proc = subprocess.Popen(
+            args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+        from .procs import register
+        register(proc)                  # app shutdown must not orphan the pip process
         for line in proc.stdout:
             _append(job_id, line)
         code = proc.wait()

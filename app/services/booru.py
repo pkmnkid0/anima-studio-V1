@@ -27,6 +27,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from . import booru_engines as engines
+from . import netbypass
 from . import settings_store
 
 USER_AGENT = "AnimaLoRAStudio/1.0 (dataset collection tool; +local use)"
@@ -78,19 +79,29 @@ class CredentialsRequiredError(BooruError):
         self.source = source
 
 
+_sessions: dict[str, requests.Session] = {}
+_sessions_lock = threading.Lock()
+
+
 def _session() -> requests.Session:
-    s = requests.Session()
-    retry = Retry(total=2, connect=2, read=2, status=2, backoff_factor=0.6,
-                  status_forcelist=(429, 500, 502, 503, 504),
-                  allowed_methods=frozenset({"GET"}),
-                  raise_on_status=False)
-    adapter = HTTPAdapter(max_retries=retry)
-    s.mount("https://", adapter); s.mount("http://", adapter)
-    s.headers.update({"User-Agent": USER_AGENT, "Accept": "text/html,application/json;q=0.9,*/*;q=0.8"})
-    _px = engines.get_proxy()
-    if _px:
-        s.proxies.update({"http": _px, "https": _px})
-    return s
+    """One warm Session per proxy setting, reused between searches - a new
+    Session per call paid a fresh TCP + TLS handshake every time."""
+    px = engines.get_proxy()
+    with _sessions_lock:
+        s = _sessions.get(px)
+        if s is None:
+            s = requests.Session()
+            retry = Retry(total=2, connect=2, read=2, status=2, backoff_factor=0.6,
+                          status_forcelist=(429, 500, 502, 503, 504),
+                          allowed_methods=frozenset({"GET"}),
+                          raise_on_status=False)
+            adapter = netbypass.BypassAdapter(max_retries=retry, pool_connections=16, pool_maxsize=16)
+            s.mount("https://", adapter); s.mount("http://", adapter)
+            s.headers.update({"User-Agent": USER_AGENT, "Accept": "text/html,application/json;q=0.9,*/*;q=0.8"})
+            if px:
+                s.proxies.update({"http": px, "https": px})
+            _sessions[px] = s
+        return s
 
 
 def _credentials(source: str) -> dict:
@@ -268,9 +279,13 @@ def _public_search_page(source, tags, rating, limit, page):
     for item in parser.items:
         if item["id"] in seen: continue
         seen.add(item["id"]); src=urljoin(base,item["src"])
-        out.append({"id":item["id"],"source":source,"post_url":item["href"],"file_url":src,"preview_url":src,
+        # The listing only exposes thumbnails; rewrite the conventional
+        # /thumbnails/.../thumbnail_<md5>.<ext> layout back to the full-size
+        # /images/.../<md5>.jpg file so downloads aren't 200x200.
+        full=re.sub(r"/thumbnails/([^/]+(?:/[^/]+)?)/thumbnail_([0-9a-f]{32})\.\w+", r"/images/\1/\2.jpg", src)
+        out.append({"id":item["id"],"source":source,"post_url":item["href"],"file_url":full,"preview_url":src,
             "width":None,"height":None,"rating":("safe" if rating=="safe" else rating if rating!="any" else "unknown"),
-            "score":0,"extension":src.rsplit(".",1)[-1].split("?",1)[0] if "." in src else "",
+            "score":0,"extension":full.rsplit(".",1)[-1].split("?",1)[0] if "." in full else "",
             "tags":{"general":_split_tags(item.get("alt","")),"character":[],"copyright":[],"artist":[],"meta":[]}})
         if len(out)>=limit: break
     return out

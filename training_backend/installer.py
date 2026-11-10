@@ -205,10 +205,7 @@ def main():
     if not check_git_install():
         quit()
 
-    if os.path.isdir(".git"):
-        subprocess.check_call("git submodule update --init --recursive", shell=PLATFORM == "linux")
-    else:
-        logger.info("training_backend is not a git checkout; skipping submodule update")
+    subprocess.check_call("git submodule update --init --recursive", shell=PLATFORM == "linux")
 
     setup_config(
         len(sys.argv) > 1 and sys.argv[1] == "colab",

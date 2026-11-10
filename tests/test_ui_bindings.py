@@ -24,7 +24,9 @@ def test_every_default_setting_is_bound_to_a_field():
     block = seg[:end if end > 0 else len(seg)]
     keys = set(re.findall(r"\b([a-z][a-z_0-9]+):", block))
     rest = s[a + len(block):]
-    unbound = [k for k in sorted(keys) if not re.search(r"\." + k + r"\b", rest)]
+    # a setting is bound when a field reads/writes `.key`, or when the KohakuMoss form helper names it: kf("key", ...)
+    unbound = [k for k in sorted(keys)
+               if not re.search(r"\." + k + r"\b", rest) and not re.search(r"\bkf\(\s*[\"']" + k + r"[\"']", rest)]
     assert not unbound, f"settings with no UI field: {unbound}"
 
 

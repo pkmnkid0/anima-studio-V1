@@ -70,6 +70,16 @@ for _name in schema.OPTIMIZERS_ALL:
 _FRIENDLY_OPTIMIZERS = {v: k for k, v in _DOTTED_OPTIMIZERS.items()}
 
 
+def resolve_moss_paths(m: dict) -> dict:
+    """MOSS-Image paths, taken exactly as typed - like the Anima tab, no guessing from file names.
+
+    Model: a pipeline folder (its text_encoder/, tokenizer/ and vae/ subfolders are then the defaults) or the
+    path of a single bf16 DiT .safetensors file. Text encoder / tokenizer / VAE: explicit paths, required
+    when the model is a single file."""
+    return {"model": m.get("moss_model", ""), "te": m.get("moss_text_encoder", ""),
+            "tokenizer": m.get("moss_tokenizer", ""), "vae": m.get("moss_vae", ""), "note": ""}
+
+
 def _drop_falsy(d: dict) -> dict:
     """Remove keys whose value is falsy - mirrors edit_args(..., optional=True)."""
     return {k: v for k, v in d.items() if v not in (None, "", False) and v != []}
@@ -103,6 +113,13 @@ def _build_model_and_general(ui: dict) -> tuple[dict, dict]:
             args["vae"] = model["sdxl_vae"]
         elif general.get("vae"):
             args["vae"] = general["vae"]
+    elif model_type == "moss":
+        # MOSS-Image: the pipeline folder; the text encoder / VAE (defaulting to its subfolders)
+        # travel in moss_args. The trainer is the vendored RichyRich515/sd-scripts moss-image fork.
+        args["pretrained_model_name_or_path"] = (model.get("kohaku_weights", "") if _kohaku_engine(ui)
+                                                 else resolve_moss_paths(model)["model"])
+        args["v2"] = False
+        args["sdxl"] = False
     else:
         # Base model field: the backend's general_args table always
         # carries pretrained_model_name_or_path (GeneralUI wires it
@@ -121,7 +138,13 @@ def _build_model_and_general(ui: dict) -> tuple[dict, dict]:
     args["lowram"] = bool(general.get("lowram"))
     args["highvram"] = bool(general.get("highvram"))
 
-    if general.get("full_fp16"):
+    if model_type == "moss":
+        # fp16 overflows MOSS-Image's activations; the DiT is trained and stored in bf16.
+        if general.get("full_bf16"):
+            args["full_bf16"] = True
+        else:
+            args["mixed_precision"] = "bf16"
+    elif general.get("full_fp16"):
         args["full_fp16"] = True
     elif general.get("full_bf16"):
         args["full_bf16"] = True
@@ -236,6 +259,65 @@ def _build_anima(ui: dict) -> dict:
     if model.get("unsloth_offload_checkpointing"):
         args["unsloth_offload_checkpointing"] = True
 
+    return args
+
+
+_MOSS_INT8 = {"off": (False, "bf16"), "on": (True, "bf16"), "on_bwd": (True, "int8")}
+
+
+def _build_moss(ui: dict) -> dict:
+    """moss_args: every option of the fork's moss_train_network.py parser that the Train tab exposes."""
+    if ui.get("model_type", "anima") != "moss" or _kohaku_engine(ui):
+        return {}
+    m = ui.get("model", {})
+    r = resolve_moss_paths(m)
+    args: dict[str, Any] = {"pretrained_model_name_or_path": r["model"]}
+    if r["te"]:
+        args["moss_text_encoder"] = r["te"]
+    if r["tokenizer"]:
+        args["moss_tokenizer"] = r["tokenizer"]
+    if r["vae"]:
+        args["vae"] = r["vae"]
+    args["moss_max_token_length"] = int(m.get("moss_max_token_length", 512))
+    args["moss_lora_save_format"] = m.get("moss_lora_save_format", "both")
+
+    sampling = m.get("moss_timestep_sampling", "moss")
+    args["timestep_sampling"] = sampling
+    args["discrete_flow_shift"] = float(m.get("moss_discrete_flow_shift", 1.0))
+    args["sigmoid_scale"] = float(m.get("moss_sigmoid_scale", 1.0))
+    if sampling == "moss":
+        args["moss_ts_mu"] = float(m.get("moss_ts_mu", -1.09))
+        args["moss_ts_s"] = float(m.get("moss_ts_s", 0.95))
+        args["moss_ts_cutoff"] = float(m.get("moss_ts_cutoff", 0.95))
+        args["moss_ts_uniform_mix"] = float(m.get("moss_ts_uniform_mix", 0.01))
+
+    swap = int(m.get("moss_blocks_to_swap", 0))
+    int8, int8_bwd = _MOSS_INT8.get(m.get("moss_int8", "off"), (False, "bf16"))
+    if swap > 0:
+        args["blocks_to_swap"] = min(swap, 40)
+        int8 = False                                   # the trainer refuses INT8 + block swap
+    if int8:
+        args["moss_int8"] = True
+        if int8_bwd == "int8":
+            args["moss_int8_bwd"] = "int8"
+    args["moss_attn_backend"] = m.get("moss_attn_backend", "auto")
+    args["moss_compile"] = m.get("moss_compile", "none")
+    if int(m.get("moss_unchecked_blocks", 0)) > 0:
+        args["moss_unchecked_blocks"] = int(m["moss_unchecked_blocks"])
+    if m.get("moss_fp32_modulation"):
+        args["moss_fp32_modulation"] = True
+    if m.get("moss_vae_sample_posterior"):
+        args["moss_vae_sample_posterior"] = True
+    skip = str(m.get("moss_sample_skip_layers", "22")).strip()
+    args["moss_sample_uncond_skip_layers"] = skip or "none"
+
+    # Text-encoder loading while captions are cached (low-VRAM path, see moss_backend/PATCHES.md)
+    mode = m.get("moss_te_mode", "full")
+    if mode in ("offload", "nf4", "int8"):
+        args["moss_te_mode"] = mode
+    if mode == "offload":
+        args["moss_te_gpu_gb"] = float(m.get("moss_te_gpu_gb", 6.0))
+        args["moss_te_cpu_gb"] = float(m.get("moss_te_cpu_gb", 48.0))
     return args
 
 
@@ -695,6 +777,8 @@ def build_backend_payload(ui: dict) -> dict:
     args = {
         "general_args": general_args,
         "anima_args": _build_anima(ui),
+        "moss_args": _build_moss(ui),
+        "kohaku_args": _build_kohaku(ui),
         "network_args": _build_network(ui),
         "optimizer_args": _build_optimizer(ui),
         "saving_args": _build_saving(ui),
@@ -772,6 +856,83 @@ def from_toml_document(doc: dict) -> dict:
 # the reconstructed UI and comparing against the original config.
 # ---------------------------------------------------------------------
 
+# Low-VRAM trainer engine (kohaku_backend/): every option of the Train tab's Low-VRAM trainer section. The keys are also the
+# keys of the payload's `kohaku_args`, and app/static/js/train.js carries the same table (tests keep them equal).
+KOHAKU_DEFAULTS: dict[str, Any] = {
+    # model files
+    "kohaku_weights": "", "kohaku_variant": "base", "kohaku_transformer": "", "kohaku_text_encoder": "",
+    "kohaku_vae": "", "kohaku_text_device": "", "kohaku_vae_dtype": "auto", "kohaku_train_text_refiner": False,
+    # memory (the 8 GB profile)
+    "kohaku_vram": "8", "kohaku_memory_profile": "minimal", "kohaku_base_precision": "",
+    "kohaku_int8_compute": False, "kohaku_int8_dgrad": "", "kohaku_fp8_recipe": "", "kohaku_fp8_dgrad": "",
+    "kohaku_step_release": "", "kohaku_compile": "", "kohaku_tune": "table",
+    "kohaku_checkpoint": "", "kohaku_stream": "", "kohaku_stream_resident": "", "kohaku_optim_state": "",
+    "kohaku_pinned": "", "kohaku_act_offload": "", "kohaku_grad_offload": "", "kohaku_fused_step": "",
+    "kohaku_te_memory": "ring", "kohaku_te_ahead": 8, "kohaku_te_batch": 16, "kohaku_te_max_tokens": 8192,
+    "kohaku_te_precision": "", "kohaku_te_stream_resident": "",
+    "kohaku_vae_memory": "offload", "kohaku_vae_ahead": 8, "kohaku_vae_batch": "", "kohaku_vae_tile": "true",
+    # data
+    "kohaku_caption_mode": "nl", "kohaku_caption_shuffle": True, "kohaku_caption_tag_dropout": 0.0,
+    "kohaku_caption_underscores": True, "kohaku_caption_unescape": True, "kohaku_text_drop": 0.1,
+    "kohaku_resolution": 1024, "kohaku_resolution_mode": "resize", "kohaku_size_step": 16,
+    "kohaku_aspect_min": 0.33, "kohaku_aspect_max": 3.0, "kohaku_upscale": "never", "kohaku_batching": "tokens",
+    "kohaku_max_tokens": 4352, "kohaku_batch_size": 4, "kohaku_overlong": "drop_tokens", "kohaku_max_samples": "",
+    "kohaku_token_budget": "estimate", "kohaku_latent_cache": "offline", "kohaku_text_cache": "offline",
+    "kohaku_cache_dtype": "bf16", "kohaku_caption_variants": 4, "kohaku_flip": False, "kohaku_crop": "center",
+    "kohaku_num_workers": 2, "kohaku_seed": 0, "kohaku_cache_dir": "",
+    # adapter
+    "kohaku_algo": "lora", "kohaku_preset": "attn-mlp", "kohaku_dim": 32, "kohaku_alpha": 32,
+    "kohaku_algo_kwargs": "", "kohaku_dora": False, "kohaku_dora_detach": "", "kohaku_dropout_input": 0.0,
+    "kohaku_dropout_rank": 0.0, "kohaku_dropout_module": 0.0, "kohaku_adapter_mode": "bypass",
+    "kohaku_loraplus_ratio": "", "kohaku_train_norms": False,
+    # objective
+    "kohaku_timestep": "moss", "kohaku_ts_mu": -1.09, "kohaku_ts_s": 0.95, "kohaku_ts_shift": 1.0,
+    "kohaku_ts_cutoff": 0.95, "kohaku_ts_uniform_mix": 0.01, "kohaku_loss": "mse", "kohaku_weighting": "none",
+    "kohaku_hard_weight": 1.0,
+    # optimiser
+    "kohaku_optimizer": "adamw", "kohaku_lr": 0.0001, "kohaku_beta1": 0.9, "kohaku_beta2": 0.95, "kohaku_eps": "",
+    "kohaku_weight_decay": 0.01, "kohaku_wd_rules": "moss", "kohaku_grad_clip": 1.0, "kohaku_schedule_mode": "cosine",
+    "kohaku_warmup": 100, "kohaku_min_value": 0.1, "kohaku_ema": "", "kohaku_step_sync": "step",
+    "kohaku_optimizer_kwargs": "", "kohaku_precision": "bf16", "kohaku_fp16_fix": "",
+    # run
+    "kohaku_duration": "steps", "kohaku_epochs": 10, "kohaku_save_every_epochs": 1,
+    "kohaku_steps": 300, "kohaku_grad_acc": 4, "kohaku_log_every": 5, "kohaku_metrics_every": "",
+    "kohaku_logger": "console", "kohaku_metrics_level": "train", "kohaku_run_inspect": True,
+    "kohaku_save_every": 100, "kohaku_save_minutes": 30, "kohaku_keep_last": 3, "kohaku_final_checkpoint": "auto",
+    "kohaku_resume": "", "kohaku_init_from": "", "kohaku_save_format": "comfy", "kohaku_save_merged": False,
+    "kohaku_save_fused_qkv": "", "kohaku_checkpoint_export": True,
+    # sampling
+    "kohaku_sample_every": 0, "kohaku_sample_prompts": "", "kohaku_sample_negative": "", "kohaku_sample_steps": 50,
+    "kohaku_sample_cfg": 3.0, "kohaku_sample_shift": 5.0, "kohaku_sample_width": 1024, "kohaku_sample_height": 1024,
+    "kohaku_sample_seeds": "0", "kohaku_sample_skip_layers": "22", "kohaku_sample_batch": "",
+    "kohaku_sample_columns": "", "kohaku_sample_at_start": False,
+    # anything else: KNOB = value lines
+    "kohaku_extra_knobs": "",
+}
+
+
+def _kohaku_engine(ui: dict) -> bool:
+    """MOSS-Image trained by the Low-VRAM trainer engine instead of the sd-scripts fork."""
+    return ui.get("model_type", "anima") == "moss" and (ui.get("model") or {}).get("moss_engine") == "kohaku"
+
+
+def _build_kohaku(ui: dict) -> dict:
+    """kohaku_args: the Train tab's Low-VRAM trainer options, as typed (native_backend/kohaku_config.py coerces them)."""
+    if not _kohaku_engine(ui):
+        return {}
+    m = ui.get("model", {})
+    return {k: m.get(k, v) for k, v in KOHAKU_DEFAULTS.items()}
+
+
+def _ui_kohaku(args: dict, ui: dict) -> None:
+    ui["model_type"] = "moss"
+    m = ui["model"]
+    m["moss_engine"] = "kohaku"
+    for key in KOHAKU_DEFAULTS:
+        if key in args:
+            m[key] = args[key]
+
+
 def default_ui_payload() -> dict:
     """The same defaults the frontend's Train tab starts from - kept
     here too so "Load TOML" always returns a complete, valid shape even
@@ -786,6 +947,17 @@ def default_ui_payload() -> dict:
             "vae_chunk_size": 0, "vae_disable_cache": False, "blocks_to_swap": 0,
             "flash_attn": False, "split_attn": False, "unsloth_offload_checkpointing": False,
             "sdxl_checkpoint": "", "sdxl_vae": "",
+            # MOSS-Image. Defaults are the 8 GB profile: full bf16 DiT, 36 of 42 blocks swapped to RAM.
+            "moss_model": "", "moss_text_encoder": "", "moss_vae": "", "moss_max_token_length": 512,
+            "moss_lora_save_format": "both", "moss_timestep_sampling": "moss",
+            "moss_discrete_flow_shift": 1.0, "moss_sigmoid_scale": 1.0,
+            "moss_ts_mu": -1.09, "moss_ts_s": 0.95, "moss_ts_cutoff": 0.95, "moss_ts_uniform_mix": 0.01,
+            "moss_blocks_to_swap": 36, "moss_int8": "off", "moss_attn_backend": "auto", "moss_compile": "none",
+            "moss_unchecked_blocks": 0, "moss_fp32_modulation": False, "moss_vae_sample_posterior": False,
+            "moss_sample_skip_layers": "22", "moss_te_mode": "offload", "moss_te_gpu_gb": 6.0,
+            "moss_te_cpu_gb": 48.0, "moss_vram_profile": "8",
+            # which engine trains MOSS-Image: "fork" (sd-scripts moss fork) or "kohaku" (Low-VRAM trainer, KOHAKU_DEFAULTS)
+            "moss_engine": "fork", **KOHAKU_DEFAULTS,
         },
         "general": {
             "resolution_width": 1024, "resolution_height_enabled": False, "resolution_height": 1024,
@@ -976,6 +1148,29 @@ def _ui_anima(args: dict, ui: dict) -> None:
         m["split_attn"] = True
     if args.get("unsloth_offload_checkpointing"):
         m["unsloth_offload_checkpointing"] = True
+
+
+def _ui_moss(args: dict, ui: dict) -> None:
+    m = ui["model"]
+    ui["model_type"] = "moss"
+    simple = {"pretrained_model_name_or_path": "moss_model", "moss_text_encoder": "moss_text_encoder",
+              "vae": "moss_vae", "moss_max_token_length": "moss_max_token_length",
+              "moss_lora_save_format": "moss_lora_save_format", "timestep_sampling": "moss_timestep_sampling",
+              "discrete_flow_shift": "moss_discrete_flow_shift", "sigmoid_scale": "moss_sigmoid_scale",
+              "moss_ts_mu": "moss_ts_mu", "moss_ts_s": "moss_ts_s", "moss_ts_cutoff": "moss_ts_cutoff",
+              "moss_ts_uniform_mix": "moss_ts_uniform_mix", "moss_attn_backend": "moss_attn_backend",
+              "moss_compile": "moss_compile", "moss_unchecked_blocks": "moss_unchecked_blocks",
+              "moss_te_gpu_gb": "moss_te_gpu_gb", "moss_te_cpu_gb": "moss_te_cpu_gb"}
+    for src, dst in simple.items():
+        if src in args:
+            m[dst] = args[src]
+    m["moss_blocks_to_swap"] = int(args.get("blocks_to_swap", 0))
+    m["moss_int8"] = ("on_bwd" if args.get("moss_int8_bwd") == "int8" else "on") if args.get("moss_int8") else "off"
+    m["moss_fp32_modulation"] = bool(args.get("moss_fp32_modulation"))
+    m["moss_vae_sample_posterior"] = bool(args.get("moss_vae_sample_posterior"))
+    skip = str(args.get("moss_sample_uncond_skip_layers", "22"))
+    m["moss_sample_skip_layers"] = "" if skip == "none" else skip
+    m["moss_te_mode"] = args.get("moss_te_mode", "full")
 
 
 def _ui_network(args: dict, ui: dict) -> None:
@@ -1313,6 +1508,10 @@ def to_ui_payload(payload: dict) -> dict:
 
     _ui_general(args.get("general_args", {}), dataset.get("general_args", {}), ui)
     _ui_anima(args.get("anima_args", {}), ui)
+    if args.get("moss_args"):
+        _ui_moss(args["moss_args"], ui)
+    if args.get("kohaku_args"):
+        _ui_kohaku(args["kohaku_args"], ui)
     _ui_network(args.get("network_args", {}), ui)
     _ui_optimizer(args.get("optimizer_args", {}), ui)
     _ui_saving(args.get("saving_args", {}), ui)

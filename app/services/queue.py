@@ -345,6 +345,7 @@ def _run_job(job: dict) -> None:
         # 3) follow it to the end
         started = time.monotonic()
         seen_training = False
+        missed_polls = 0
         while True:
             time.sleep(POLL_SECONDS)
             if job_id in _cancel:
@@ -353,7 +354,13 @@ def _run_job(job: dict) -> None:
                 return _finish(job_id, STATUS_CANCELLED, "Cancelled by you; stop signal sent to the backend.")
             try:
                 st = backend_client.is_training(url)
+                missed_polls = 0
             except backend_client.BackendUnreachable:
+                missed_polls += 1
+                if missed_polls >= 6:   # ~30s unreachable: it stopped, it isn't restarting
+                    return _finish(job_id, STATUS_ERROR,
+                                   "The training backend stopped responding for 30+ seconds. "
+                                   "Check it, then Retry if the run was interrupted.")
                 continue          # backend busy/restarting; keep waiting
             if st.get("training"):
                 seen_training = True

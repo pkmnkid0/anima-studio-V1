@@ -10,6 +10,9 @@ const Studio = (() => {
       else if (k === "text") node.textContent = v;
       else if (k === "html") node.innerHTML = v;
       else if (k.startsWith("on")) node.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (k === "dataset" && v && typeof v === "object") {
+        for (const [dk, dv] of Object.entries(v)) node.dataset[dk] = dv;
+      }
       else if (v !== undefined && v !== null) node.setAttribute(k, v);
     }
     for (const child of children.flat()) {
@@ -53,6 +56,12 @@ const Studio = (() => {
       document.querySelectorAll("#health-cleanup-list input[type=checkbox]").forEach((box) => {
         box.checked = /duplicate/i.test(box.dataset.reason || "");
       });
+      refreshCleanupApply();
+    });
+    // The apply button reflects whatever is currently ticked (it used to
+    // stay disabled forever - nothing ever enabled it).
+    $("health-cleanup-list")?.addEventListener("change", (e) => {
+      if (e.target.matches("input[type=checkbox]")) refreshCleanupApply();
     });
     $("health-cleanup-apply")?.addEventListener("click", async () => {
       const decisions = {};
@@ -165,7 +174,7 @@ const Studio = (() => {
       const warnings = $("health-balance-warnings");
       if (bal.warnings && bal.warnings.length) {
         warnings.style.display = "block";
-        warnings.innerHTML = bal.warnings.map((w) => `<div>${w}</div>`).join("");
+        warnings.replaceChildren(...bal.warnings.map((w) => el("div", {}, w)));
       } else {
         warnings.style.display = "none";
       }
@@ -202,7 +211,7 @@ const Studio = (() => {
     (row.images || []).forEach((path) => {
       grid.appendChild(el("img", {
         src: `/api/files/image?path=${encodeURIComponent(path)}`,
-        alt: row.label, style: "width:100%;border-radius:6px", loading: "lazy",
+        alt: row.label, style: "width:100%;border-radius:6px", loading: "lazy", decoding: "async",
       }));
     });
   }
@@ -212,6 +221,7 @@ const Studio = (() => {
     list.innerHTML = "";
     const plan = cleanupPlan(data);
     $("health-cleanup-count").textContent = plan.length;
+    refreshCleanupApply();
     if (!plan.length) {
       list.appendChild(el("p", { class: "card-hint" }, "No cleanup candidates found."));
       return;
@@ -224,6 +234,18 @@ const Studio = (() => {
         el("span", { class: "mono cleanup-path" }, item.path.replace(/^.*[\\/]/, "")),
       ]));
     });
+  }
+
+  // Join a folder + child name the way the server's Path/folder join does:
+  // follow the folder's own separator and don't double a trailing one.
+  function cleanupPathJoin(folder, name) {
+    const sep = folder.includes("\\") ? "\\" : "/";
+    return `${folder.replace(/[\\/]+$/, "")}${sep}${name}`;
+  }
+
+  function refreshCleanupApply() {
+    const anyChecked = [...document.querySelectorAll("#health-cleanup-list input[type=checkbox]")].some((b) => b.checked);
+    $("health-cleanup-apply").disabled = !anyChecked;
   }
 
   // Client-side mirror of the server's cleanup_plan so the UI
@@ -239,66 +261,9 @@ const Studio = (() => {
     (analysis.corrupt || []).forEach((i) => add(i.path, `Corrupted: ${i.corrupt}`, "remove"));
     (analysis.tiny || []).forEach((i) => add(i.path, `Tiny image (${i.width}x${i.height})`, "review"));
     (analysis.extreme_aspect || []).forEach((i) => add(i.path, `Extreme aspect ratio (${i.aspect})`, "review"));
-    (analysis.exact_duplicates || []).forEach((group) => group.slice(1).forEach((name) => add(`${analysis.folder}\\${name}`, "Exact duplicate", "remove")));
+    (analysis.exact_duplicates || []).forEach((group) => group.slice(1).forEach((name) => add(cleanupPathJoin(analysis.folder, name), "Exact duplicate", "remove")));
     (analysis.near_duplicates || []).forEach((group) => group.slice(1).forEach((p) => add(p, "Near-duplicate (visually redundant)", "review")));
     return plan;
-  }
-
-  // ------------------------------------------------------------------
-  // Caption tab: rules, variations, templates (§4)
-  // ------------------------------------------------------------------
-  async function initCaptionVariations() {
-    // Variations
-    let variationGroups = [];
-    $("variations-scan-btn")?.addEventListener("click", async () => {
-      const folder = $("caption-folder")?.value.trim();
-      if (!folder) return toast("Load a caption folder first.", "error");
-      try {
-        const res = await Api.captionVariations(folder);
-        variationGroups = res.variations || [];
-        renderVariations(variationGroups);
-        $("variations-apply-btn").disabled = !variationGroups.length;
-      } catch (err) { toastError(err); }
-    });
-    $("variations-apply-btn")?.addEventListener("click", async () => {
-      const folder = $("caption-folder")?.value.trim();
-      if (!folder) return;
-      const checked = [...document.querySelectorAll("#variations-list input[data-variation]:checked")]
-        .map((b) => Number(b.dataset.variation));
-      const mapping = {};
-      checked.forEach((i) => {
-        const g = variationGroups[i];
-        if (g) g.tags.forEach((t) => { if (t !== g.suggestion) mapping[t] = g.suggestion; });
-      });
-      if (!Object.keys(mapping).length) return toast("Select at least one variation group first.", "error");
-      try {
-        const res = await Api.captionStandardize(folder, mapping);
-        toast(`Standardized — ${res.changed} replacement(s).`, "success");
-        $("variations-apply-btn").disabled = true;
-      } catch (err) { toastError(err); }
-    });
-  }
-
-  function renderVariations(groups) {
-    const box = $("variations-list");
-    box.innerHTML = "";
-    if (!groups.length) {
-      box.appendChild(el("p", { class: "card-hint" }, "No tag variations found."));
-      return;
-    }
-    groups.forEach((g, i) => {
-      box.appendChild(el("label", { class: "cleanup-row" }, [
-        el("input", { type: "checkbox", "data-variation": i, checked: "" }),
-        el("span", { class: "cleanup-reason" }, g.message),
-      ]));
-    });
-    box.appendChild(el("label", { class: "checkbox-row", style: "margin-top:8px" }, [
-      el("input", { type: "checkbox", id: "variations-all", checked: "" }),
-      el("span", {}, " select all"),
-    ]));
-    $("variations-all")?.addEventListener("change", (e) => {
-      box.querySelectorAll("input[data-variation]").forEach((c) => { c.checked = e.target.checked; });
-    });
   }
 
   // ------------------------------------------------------------------
@@ -347,6 +312,106 @@ const Studio = (() => {
         FolderBrowser.open($(inputId).value || null, (p) => { $(inputId).value = p; });
       });
     };
+    // ---- LoRA slimmer ----
+    let slimPick = null;
+    const slimPathVal = () => $("slim-path").value.trim().replace(/^"|"$/g, "");
+    async function slimAnalyze() {
+      const path = slimPathVal();
+      if (!path) return toast("Pick a LoRA file first.", "error");
+      $("slim-spinner").style.display = "inline-block";
+      $("slim-options").style.display = "none";
+      try {
+        const r = await Api.slimAnalyze(path, $("slim-dtype").value);
+        $("slim-info").textContent = `${r.size_mb} MB · ${r.layers} layers · rank ${r.max_rank} · ${r.dtype}` +
+          (r.base_model ? ` · ${r.base_model}` : "") + (r.skipped ? ` · ${r.skipped} other tensors copied untouched` : "");
+        const t = $("slim-table");
+        t.replaceChildren(
+          h("thead", {}, h("tr", {}, ["", "Option", "Size", "Saved", "Kept", "Avg rank"].map((x) => h("th", {}, x)))),
+          h("tbody", {}, r.options.map((o) => h("tr", {}, [
+            h("td", {}, h("input", { type: "radio", name: "slim-opt", value: o.id,
+              checked: o.id === r.recommended, onchange: () => { slimPick = o; } })),
+            h("td", {}, o.label + (o.id === r.recommended ? "  ★ recommended" : "")),
+            h("td", {}, `${o.size_mb} MB`), h("td", {}, `${o.saved_pct}%`),
+            h("td", {}, `${o.kept_pct}%`), h("td", {}, String(o.avg_rank))])))
+        );
+        slimPick = r.options.find((o) => o.id === r.recommended) || null;
+        $("slim-options").style.display = "block";
+        if (!r.recommended) toast("No option keeps 99% - pick one yourself.", "info");
+      } catch (err) { toastError(err); }
+      finally { $("slim-spinner").style.display = "none"; }
+    }
+    $("slim-analyze-btn")?.addEventListener("click", slimAnalyze);
+    $("slim-browse")?.addEventListener("click", () => {
+      const cur = slimPathVal();
+      FileBrowser.open(cur ? cur.replace(/[\\/][^\\/]*$/, "") : null, "safetensors", (p) => {
+        $("slim-path").value = p; slimAnalyze();
+      });
+    });
+    $("slim-dtype")?.addEventListener("change", () => { if (slimPathVal() && $("slim-options").style.display !== "none") slimAnalyze(); });
+    $("slim-run-btn")?.addEventListener("click", async () => {
+      if (!slimPick) return toast("Pick one of the options first.", "error");
+      $("slim-spinner").style.display = "inline-block";
+      try {
+        const r = await Api.slimLora({ path: slimPathVal(), mode: slimPick.mode, value: slimPick.value, dtype: $("slim-dtype").value });
+        $("slim-status").textContent = `Saved ${r.out_path} — ${r.size_before_mb} → ${r.size_after_mb} MB, kept ${r.kept_pct}%`;
+        toast("Slim copy saved.", "success");
+      } catch (err) { toastError(err); }
+      finally { $("slim-spinner").style.display = "none"; }
+    });
+
+    // ---- LoRA metadata ----
+    const metaPathVal = () => $("meta-path").value.trim().replace(/^"|"$/g, "");
+    let metaInfo = null;
+    async function metaRead() {
+      const path = metaPathVal();
+      if (!path) return toast("Pick a .safetensors file first.", "error");
+      $("meta-spinner").style.display = "inline-block";
+      try {
+        metaInfo = await Api.loraMetadata(path);
+        $("meta-summary").textContent = metaInfo.has_metadata
+          ? `${metaInfo.key_count} metadata key(s) · ${metaInfo.tensors} tensors · ${metaInfo.size_mb} MB`
+          : `No metadata in this file · ${metaInfo.tensors} tensors · ${metaInfo.size_mb} MB`;
+        $("meta-table").replaceChildren(
+          h("thead", {}, h("tr", {}, ["Keep", "Key", "Value", "Size"].map((x) => h("th", {}, x)))),
+          h("tbody", {}, metaInfo.keys.map((k) => h("tr", {}, [
+            h("td", {}, h("input", { type: "checkbox", "data-key": k.key })),
+            h("td", { class: "mono" }, k.key),
+            h("td", { title: k.value }, k.value.length > 120 ? `${k.value.slice(0, 120)}…` : k.value),
+            h("td", {}, `${k.size} B`),
+          ])))
+        );
+        $("meta-panel").style.display = metaInfo.has_metadata ? "block" : "none";
+        if (!metaInfo.has_metadata) toast("This file has no metadata.", "info");
+      } catch (err) { toastError(err); $("meta-panel").style.display = "none"; }
+      finally { $("meta-spinner").style.display = "none"; }
+    }
+    $("meta-read-btn")?.addEventListener("click", metaRead);
+    $("meta-browse")?.addEventListener("click", () => {
+      const cur = metaPathVal();
+      FileBrowser.open(cur ? cur.replace(/[\\/][^\\/]*$/, "") : null, "safetensors", (p) => {
+        $("meta-path").value = p;
+        metaRead();
+      });
+    });
+    $("meta-all-btn")?.addEventListener("click", () => {
+      document.querySelectorAll("#meta-table input[type=checkbox]").forEach((b) => { b.checked = true; });
+    });
+    $("meta-none-btn")?.addEventListener("click", () => {
+      document.querySelectorAll("#meta-table input[type=checkbox]").forEach((b) => { b.checked = false; });
+    });
+    $("meta-strip-btn")?.addEventListener("click", async () => {
+      if (!metaInfo || !metaInfo.has_metadata) return toast("Read a file with metadata first.", "error");
+      const keep = [...document.querySelectorAll("#meta-table input[type=checkbox]:checked")].map((b) => b.dataset.key);
+      $("meta-spinner").style.display = "inline-block";
+      try {
+        const r = await Api.loraStripMetadata({ path: metaPathVal(), keep });
+        $("meta-status").textContent = `Saved ${r.out_path} — ${r.size_before_mb} → ${r.size_after_mb} MB · ` +
+          `${r.removed.length} key(s) removed${r.kept.length ? `, ${r.kept.length} kept` : ""} · weights verified unchanged`;
+        toast("Copy saved without the unticked metadata.", "success");
+      } catch (err) { toastError(err); }
+      finally { $("meta-spinner").style.display = "none"; }
+    });
+
     wireBrowse("package-out", "package-out-browse");
     wireBrowse("package-dataset", "package-dataset-browse");
     $("package-lora-browse")?.addEventListener("click", () => {
@@ -423,7 +488,7 @@ const Studio = (() => {
     const warnings = $("calc-warnings");
     if (res.warnings && res.warnings.length) {
       warnings.style.display = "block";
-      warnings.innerHTML = res.warnings.map((w) => `<div>${w}</div>`).join("");
+      warnings.replaceChildren(...res.warnings.map((w) => el("div", {}, w)));
     } else {
       warnings.style.display = "none";
     }
@@ -473,6 +538,12 @@ const Studio = (() => {
   }
 
   function initDragDrop() {
+    // Dropping a file anywhere outside a real drop zone would make the
+    // browser navigate to it, silently replacing the whole app.
+    ["dragover", "drop"].forEach((ev) =>
+      document.addEventListener(ev, (e) => {
+        if (!e.target.closest || !e.target.closest("[data-drop]")) e.preventDefault();
+      }));
     document.querySelectorAll("[data-drop]").forEach((zone) => {
       ["dragenter", "dragover"].forEach((ev) =>
         zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add("drop-active"); }));
@@ -495,7 +566,6 @@ const Studio = (() => {
 
   function init() {
     initHealth();
-    initCaptionVariations();
     initStudioTab();
     initDragDrop();
   }

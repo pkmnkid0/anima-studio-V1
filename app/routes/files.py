@@ -62,7 +62,11 @@ def mkdir():
 @bp.get("/thumbnail")
 def thumbnail():
     path = request.args.get("path", "")
-    size = int(request.args.get("size", 240))
+    try:
+        size = int(request.args.get("size", 240))
+    except ValueError:
+        size = 240
+    size = max(32, min(size, 1024))
     p = Path(path)
     if not p.exists() or not p.is_file() or p.suffix.lower() not in config.IMAGE_EXTENSIONS:
         abort(404)
@@ -73,12 +77,19 @@ def thumbnail():
         return send_file(cache_path, mimetype="image/jpeg")
 
     from PIL import Image
-    img = Image.open(p).convert("RGB")
+    try:
+        img = Image.open(p).convert("RGB")
+    except Exception:                                     # noqa: BLE001 - unreadable/corrupt image
+        abort(404)
     img.thumbnail((size, size))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     buf.seek(0)
-    cache_path.write_bytes(buf.getvalue())
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_bytes(buf.getvalue())
+    except OSError:
+        pass                          # cache is an optimization; still serve the buffer
     buf.seek(0)
     return send_file(buf, mimetype="image/jpeg")
 

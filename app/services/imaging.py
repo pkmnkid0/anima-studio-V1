@@ -12,7 +12,9 @@ The first edit to an image backs up the original bytes alongside it
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -34,7 +36,10 @@ def read_text_robust(path: Path) -> str:
     errors="replace" turns most of the text into replacement
     characters, which can make an existing, perfectly good caption file
     look empty or garbled once it hits the Caption tab."""
-    raw = path.read_bytes()
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return ""
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
         try:
             return raw.decode("utf-16").strip()
@@ -44,6 +49,10 @@ def read_text_robust(path: Path) -> str:
         raw = raw[3:]
     try:
         return raw.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        pass
+    try:
+        return raw.decode("cp1252").strip()   # captions saved by western-locale tools
     except UnicodeDecodeError:
         return raw.decode("utf-8", errors="replace").strip()
 
@@ -82,11 +91,92 @@ def ensure_backup(image_path: str) -> None:
         backup.write_bytes(p.read_bytes())
 
 
+# ----- step-by-step undo/redo of applied edits --------------------------------------------------
+# Before an edit overwrites an image in place, the old file is copied into the app's data folder, so Undo in the
+# editor can take back each applied edit (not only the unsaved mask strokes) and Redo can bring it back.
+
+HISTORY_KEEP = 12                      # undo steps kept per image
+HISTORY_MAX_BYTES = 3 * 1024 ** 3      # oldest histories are dropped beyond this
+
+
+def _history_dir(image_path: Path) -> Path:
+    from ..config import DATA_DIR
+    key = hashlib.sha1(str(image_path.resolve()).encode("utf-8", "ignore")).hexdigest()[:20]
+    return DATA_DIR / "edit_history" / key
+
+
+def _hist_files(d: Path, kind: str) -> list[Path]:
+    return sorted(d.glob(f"{kind}_*")) if d.is_dir() else []
+
+
+def _hist_add(d: Path, kind: str, src: Path) -> None:
+    d.mkdir(parents=True, exist_ok=True)
+    files = _hist_files(d, kind)
+    n = int(files[-1].name.split("_")[1].split(".")[0]) + 1 if files else 1
+    shutil.copyfile(src, d / f"{kind}_{n:06d}{src.suffix}")
+
+
+def push_history(image_path: str) -> None:
+    """Call right before an in-place write. Starts a new branch: whatever could have been redone is dropped."""
+    p = Path(image_path)
+    if not p.is_file():
+        return
+    d = _history_dir(p)
+    for f in _hist_files(d, "r"):
+        f.unlink(missing_ok=True)
+    _hist_add(d, "u", p)
+    for f in _hist_files(d, "u")[:-HISTORY_KEEP]:
+        f.unlink(missing_ok=True)
+    _prune_history()
+
+
+def _prune_history() -> None:
+    from ..config import DATA_DIR
+    root = DATA_DIR / "edit_history"
+    if not root.is_dir():
+        return
+    dirs = [x for x in root.iterdir() if x.is_dir()]
+    sizes = {x: sum(f.stat().st_size for f in x.iterdir() if f.is_file()) for x in dirs}
+    total = sum(sizes.values())
+    for x in sorted(dirs, key=lambda d: d.stat().st_mtime):
+        if total <= HISTORY_MAX_BYTES:
+            break
+        shutil.rmtree(x, ignore_errors=True)
+        total -= sizes[x]
+
+
+def history_state(image_path: str) -> dict:
+    d = _history_dir(Path(image_path))
+    return {"undo": len(_hist_files(d, "u")), "redo": len(_hist_files(d, "r"))}
+
+
+def _step(image_path: str, take: str, give: str) -> bool:
+    p = Path(image_path)
+    d = _history_dir(p)
+    files = _hist_files(d, take)
+    if not files or not p.is_file():
+        return False
+    src = files[-1]
+    _hist_add(d, give, p)                  # what is on disk now becomes the opposite step
+    p.write_bytes(src.read_bytes())
+    src.unlink(missing_ok=True)
+    return True
+
+
+def undo_edit(image_path: str) -> bool:
+    return _step(image_path, "u", "r")
+
+
+def redo_edit(image_path: str) -> bool:
+    return _step(image_path, "r", "u")
+
+
 def revert_to_backup(image_path: str) -> bool:
     p = Path(image_path)
     backup = _backup_path(p)
     if not backup.exists():
         return False
+    push_history(image_path)
     p.write_bytes(backup.read_bytes())
     return True
 
@@ -94,7 +184,10 @@ def revert_to_backup(image_path: str) -> bool:
 def _decode_b64_image(data: str) -> bytes:
     if "," in data and data.strip().startswith("data:"):
         data = data.split(",", 1)[1]
-    return base64.b64decode(data)
+    try:
+        return base64.b64decode(data)
+    except ValueError as exc:     # binascii.Error is a ValueError
+        raise ImagingError("The mask data is invalid - paint over the area again.") from exc
 
 
 def inpaint(image_path: str, mask_b64: str, method: str = "telea", radius: int = 4, save_as_copy: bool = False) -> str:
@@ -109,8 +202,14 @@ def inpaint(image_path: str, mask_b64: str, method: str = "telea", radius: int =
     if not p.exists():
         raise ImagingError(f"No such image: {image_path}")
 
-    image = Image.open(p).convert("RGB")
-    mask_img = Image.open(io.BytesIO(_decode_b64_image(mask_b64))).convert("L")
+    try:
+        image = Image.open(p).convert("RGB")
+    except Exception as exc:                              # noqa: BLE001 - PIL raises many types
+        raise ImagingError(f"Couldn't open the image: {exc}") from exc
+    try:
+        mask_img = Image.open(io.BytesIO(_decode_b64_image(mask_b64))).convert("L")
+    except Exception as exc:                              # noqa: BLE001
+        raise ImagingError("The mask couldn't be read - paint over the area again.") from exc
     if mask_img.size != image.size:
         mask_img = mask_img.resize(image.size, Image.NEAREST)
 
@@ -134,6 +233,7 @@ def inpaint(image_path: str, mask_b64: str, method: str = "telea", radius: int =
         return str(target)
 
     ensure_backup(image_path)
+    push_history(image_path)
     out_image.save(p, **save_kwargs)
     return str(p)
 
@@ -185,7 +285,10 @@ def upscale(
     if scale <= 1:
         raise ImagingError("Upscale factor must be greater than 1x.")
 
-    image = Image.open(p).convert("RGB")
+    try:
+        image = Image.open(p).convert("RGB")
+    except Exception as exc:                              # noqa: BLE001
+        raise ImagingError(f"Couldn't open the image: {exc}") from exc
     result = _apply_upscale(image, scale, method)
     save_kwargs = {"quality": 95} if p.suffix.lower() in (".jpg", ".jpeg") else {}
 
@@ -202,6 +305,7 @@ def upscale(
         return str(target)
 
     ensure_backup(image_path)
+    push_history(image_path)
     result.save(p, **save_kwargs)
     return str(p)
 
@@ -224,7 +328,10 @@ def crop(
     if not p.exists():
         raise ImagingError(f"No such image: {image_path}")
 
-    image = Image.open(p).convert("RGB")
+    try:
+        image = Image.open(p).convert("RGB")
+    except Exception as exc:                              # noqa: BLE001
+        raise ImagingError(f"Couldn't open the image: {exc}") from exc
     x0, y0, x1, y1 = box
     x0, x1 = sorted((max(0, min(x0, image.width)), max(0, min(x1, image.width))))
     y0, y1 = sorted((max(0, min(y0, image.height)), max(0, min(y1, image.height))))
@@ -249,6 +356,7 @@ def crop(
         return str(target)
 
     ensure_backup(image_path)
+    push_history(image_path)
     cropped.save(p, **save_kwargs)
     return str(p)
 
@@ -338,3 +446,94 @@ def find_duplicate_groups(image_paths: list[str], threshold: int = 6) -> list[li
         ])
     result.sort(key=lambda g: len(g), reverse=True)
     return result
+
+
+# ---------------------------------------------------------------------
+# AI edit results (Edit tab -> AI tools) and mask adjustment
+# ---------------------------------------------------------------------
+
+_ALPHA_FORMATS = (".png", ".webp")
+
+
+def _background_rgb(background: str) -> tuple[int, int, int]:
+    """'#rrggbb' -> (r, g, b); anything else is white."""
+    import re
+
+    m = re.fullmatch(r"#?([0-9a-fA-F]{6})", str(background or "").strip())
+    if not m:
+        return (255, 255, 255)
+    v = int(m.group(1), 16)
+    return ((v >> 16) & 255, (v >> 8) & 255, v & 255)
+
+
+def _has_transparency(img: Image.Image) -> bool:
+    if img.mode in ("RGBA", "LA", "PA"):
+        return img.convert("RGBA").getchannel("A").getextrema()[0] < 255
+    return False
+
+
+def save_ai_result(image_path: str, result_path: str, save_as_copy: bool = False, keep_alpha: bool = False,
+                   background: str = "#ffffff") -> str:
+    """Write an AI tool's result (a PNG from the edit engine) over the dataset image, or next to it as a copy.
+
+    The original is backed up first (the same `<name>.orig.<ext>` the magic eraser uses) whenever the file is replaced.
+    A result with transparency (background removal) is kept as-is only when `keep_alpha` is set: PNG and WebP images
+    take it in place, a JPEG/BMP original is left alone and the cut-out is saved as a new `<name>_edited.png` instead.
+    Otherwise the transparency is flattened onto `background`. Returns the path written."""
+    p = Path(image_path)
+    if not p.exists():
+        raise ImagingError(f"No such image: {image_path}")
+    try:
+        res = Image.open(result_path)
+        res.load()
+    except Exception as exc:                              # noqa: BLE001 - PIL raises many types
+        raise ImagingError("That result is no longer available - run the tool again.") from exc
+
+    ext = p.suffix.lower()
+    if keep_alpha and _has_transparency(res):
+        out = res.convert("RGBA")
+        if ext in _ALPHA_FORMATS:
+            target = _copy_path(p) if save_as_copy else p
+        else:
+            target = _copy_path(p.with_suffix(".png"))
+    else:
+        if res.mode in ("RGBA", "LA", "PA"):
+            rgba = res.convert("RGBA")
+            flat = Image.new("RGBA", rgba.size, _background_rgb(background) + (255,))
+            out = Image.alpha_composite(flat, rgba).convert("RGB")
+        else:
+            out = res.convert("RGB")
+        target = _copy_path(p) if save_as_copy else p
+
+    save_kwargs = {"quality": 95} if target.suffix.lower() in (".jpg", ".jpeg", ".webp") else {}
+    if target == p:
+        ensure_backup(image_path)
+        push_history(image_path)
+    out.save(target, **save_kwargs)
+    return str(target)
+
+
+def adjust_mask(mask_b64: str, op: str, amount: int = 5) -> str:
+    """Grow, shrink or invert a painted mask (PNG data URL in, PNG data URL out; white = the area to fill).
+
+    Growing a mask a few pixels before an AI fill usually helps: it covers the soft halo around an object that the
+    brush misses."""
+    import cv2
+
+    if op not in ("expand", "shrink", "reverse"):
+        raise ImagingError("Unknown mask operation.")
+    try:
+        mask_img = Image.open(io.BytesIO(_decode_b64_image(mask_b64))).convert("L")
+    except Exception as exc:                              # noqa: BLE001
+        raise ImagingError("The mask couldn't be read - paint over the area again.") from exc
+    arr = np.array(mask_img)
+    arr = np.where(arr >= 127, 255, 0).astype(np.uint8)
+    if op == "reverse":
+        arr = 255 - arr
+    else:
+        amount = max(1, min(200, int(amount)))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * amount + 1, 2 * amount + 1))
+        arr = cv2.dilate(arr, kernel) if op == "expand" else cv2.erode(arr, kernel)
+    buf = io.BytesIO()
+    Image.fromarray(arr, mode="L").save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")

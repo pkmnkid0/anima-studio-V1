@@ -70,7 +70,10 @@ const BackendTab = (() => {
     if (dot) dot.className = "nav-step be-nav-dot " + (reachable ? "ok" : installing || running ? "busy" : state === "error" ? "bad" : "");
   }
 
+  let ticking = false;
   async function tick() {
+    if (ticking) return;          // a slow poll must not stack a second chain
+    ticking = true;
     let setup = null, proc = null, reachable = false;
     try { setup = await Api.backendSetupStatus(); } catch { /* ignore */ }
     try { proc = await Api.backendProcessStatus(); } catch { /* ignore */ }
@@ -79,7 +82,135 @@ const BackendTab = (() => {
       reachable = !!r.reachable;
     } catch { /* ignore */ }
     render(setup, proc, reachable);
+    ticking = false;
     timer = setTimeout(tick, document.hidden ? 15000 : 3000);
+  }
+
+  // --- Feature dependencies ------------------------------------------------
+  // The optional pip sets a few features need (timm tagger models, the
+  // vision-language captioner, the AI upscaler). These installs used to live
+  // inside the feature tabs themselves; they run from here now so those tabs
+  // only show a one-line note when something is missing.
+  const FD = {
+    tagger: { label: "Auto-tagger", text: "fdeps-tagger-text", btn: "fdeps-tagger-btn",
+              spinner: "fdeps-tagger-spinner", log: "fdeps-tagger-log" },
+    nl: { label: "Vision-language captions", text: "fdeps-nl-text", btn: "fdeps-nl-btn",
+          spinner: "fdeps-nl-spinner", log: "fdeps-nl-log" },
+    upscaler: { label: "AI upscaler", text: "fdeps-upscaler-text", btn: "fdeps-upscaler-btn",
+                spinner: "fdeps-upscaler-spinner", log: "fdeps-upscaler-log" },
+  };
+  const fdStart = {
+    tagger: () => Api.taggerInstallDeps(),
+    nl: () => Api.nlInstallDeps(),
+    upscaler: () => Api.upscalerInstallDeps(),
+  };
+  const fdStatus = {
+    tagger: () => Api.taggerInstallDepsStatus(),
+    nl: () => Api.nlInstallDepsStatus(),
+    upscaler: () => Api.upscalerInstallDepsStatus(),
+  };
+  const fdActive = new Set();
+  let fdTimer = null;
+
+  function fdShow(kind, text, needsInstall) {
+    const r = FD[kind];
+    $(r.text).textContent = text;
+    $(r.btn).style.display = needsInstall ? "inline-flex" : "none";
+  }
+
+  async function refreshFeatureDeps() {
+    // Auto-tagger: the timm-based models need torch/timm/safetensors in the
+    // app's own environment; the ONNX models need nothing at all.
+    if (!fdActive.has("tagger")) {
+      try {
+        const data = await Api.taggerModels();
+        const need = (data.models || []).filter((m) => m.needs_deps);
+        const missing = need.filter((m) => !m.deps_available).length;
+        fdShow("tagger", !need.length ? "not needed"
+          : missing ? `missing for ${missing} of ${need.length} timm models (torch, timm, safetensors)`
+          : "installed", missing > 0);
+      } catch (err) { fdShow("tagger", err.message || "could not check", true); }
+    }
+
+    // Captions: the probe itself says which interpreter would run the model.
+    if (!fdActive.has("nl")) {
+      try {
+        const d = await Api.nlDeps(false);
+        const bits = [`runs in ${d.label}`];
+        if (d.torch) bits.push(`torch ${d.torch.version}${d.torch.cuda ? " (CUDA)" : " (CPU only - slow)"}`);
+        if (d.missing && d.missing.length) bits.push(`missing: ${d.missing.join(", ")}`);
+        if (d.error) bits.push(d.error);
+        fdShow("nl", bits.join(" · "), !d.ok);
+      } catch (err) { fdShow("nl", err.message || "could not check", true); }
+    }
+
+    // Upscaler: torch + spandrel in the app's own environment.
+    if (!fdActive.has("upscaler")) {
+      try {
+        const s = await Api.upscalerStatus();
+        fdShow("upscaler", s.available ? "installed" : "missing torch + spandrel", !s.available);
+      } catch (err) { fdShow("upscaler", err.message || "could not check", true); }
+    }
+
+    // An install may still be running from before a reload - pick it back up.
+    for (const kind of Object.keys(FD)) {
+      if (fdActive.has(kind)) continue;
+      try {
+        const st = await fdStatus[kind]();
+        if (st.stage === "installing") { fdActive.add(kind); await renderFdJob(kind, st); }
+      } catch { /* ignore */ }
+    }
+    if (fdActive.size && !fdTimer) fdTimer = setInterval(pollFeatureDeps, 1000);
+  }
+
+  async function startFeatureDep(kind) {
+    const r = FD[kind];
+    $(r.btn).disabled = true;
+    $(r.spinner).style.display = "inline-block";
+    try {
+      fdActive.add(kind);
+      await renderFdJob(kind, await fdStart[kind]());
+      if (!fdTimer) fdTimer = setInterval(pollFeatureDeps, 1000);
+    } catch (err) {
+      fdActive.delete(kind);
+      toast(err.message, "error");
+      $(r.btn).disabled = false;
+      $(r.spinner).style.display = "none";
+    }
+  }
+
+  async function pollFeatureDeps() {
+    for (const kind of [...fdActive]) {
+      try {
+        await renderFdJob(kind, await fdStatus[kind]());
+      } catch { /* transient - the next poll retries */ }
+    }
+  }
+
+  async function renderFdJob(kind, st) {
+    const r = FD[kind];
+    const log = $(r.log);
+    if (st.log_tail && st.log_tail.length) {
+      log.style.display = "block";
+      log.textContent = st.log_tail.join("\n");
+      log.scrollTop = log.scrollHeight;
+    }
+    if (st.stage === "installing") {
+      $(r.btn).disabled = true;
+      $(r.spinner).style.display = "inline-block";
+      return;
+    }
+    fdActive.delete(kind);
+    if (!fdActive.size && fdTimer) { clearInterval(fdTimer); fdTimer = null; }
+    $(r.btn).disabled = false;
+    $(r.spinner).style.display = "none";
+    if (st.stage === "done") {
+      toast(`${r.label} dependencies installed.`, "success");
+      if (kind === "nl") await Api.nlDeps(true).catch(() => {});   // refresh the shared probe cache
+      refreshFeatureDeps();
+    } else if (st.stage === "error") {
+      toast(st.error || "Install failed - see the log.", "error");
+    }
   }
 
   function init() {
@@ -89,6 +220,15 @@ const BackendTab = (() => {
       $("backend-check-btn").click();
       if (timer) clearTimeout(timer);
       tick();
+    });
+    for (const kind of Object.keys(FD)) {
+      $(FD[kind].btn).addEventListener("click", () => startFeatureDep(kind));
+    }
+    // Statuses are fetched when the tab is opened rather than at boot: the
+    // caption check spawns a probe process, and the tab may never be visited.
+    if ($("view-backend").classList.contains("active")) refreshFeatureDeps();
+    document.addEventListener("studio:viewchange", (e) => {
+      if (e.detail && e.detail.view === "backend") refreshFeatureDeps();
     });
     tick();
   }

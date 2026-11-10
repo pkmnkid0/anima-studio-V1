@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kohakumoss"
+version = "0.1.0"
+description = "Finetuning framework for MOSS-Image: LyCORIS algorithms and full finetune, per-arch kernels, fp16/bf16, offload, multi-GPU, Windows + Linux."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "KohakuMoss License 1.0 (Apache-2.0 with a naming requirement)" }
+authors = [{ name = "Kohaku-Blueleaf" }]
+dependencies = [
+    # the one torch pin: the install helpers and docs repeat it (tests/rules/test_torch_pin.py)
+    "torch>=2.13,<2.15",
+    "numpy",
+    "packaging",
+    "pillow>=9.4",
+    # ranged reads of KohakuClip image shards behind an http(s) root (kohakumoss_data.images)
+    "requests",
+    "safetensors",
+    "tqdm",
+    "kohaku-engine",
+    "anyschedule",
+    "kohakuvault>=1.1",
+    "lycoris-lora>=4.1.3",
+    "diffusers>=0.38",
+    "transformers>=5.3",
+    # diffusers' low-memory model loading (low_cpu_mem_usage) of the VAE
+    "accelerate",
+]
+
+[project.optional-dependencies]
+# triton-windows 3.7 / 3.8 pair with torch 2.13 / 2.14, the torch pin above
+kernels-cuda = [
+    "tilelang>=0.1.15",
+    "triton-windows>=3.7,<3.9; sys_platform == 'win32'",
+]
+# Intel's Triton (pytorch-triton-xpu) comes with the XPU torch wheel
+kernels-xpu = []
+kernels = ["kohakumoss[kernels-cuda]"]
+baselines = ["flash-linear-attention", "causal-conv1d; sys_platform != 'win32'"]
+quant = ["bitsandbytes"]
+optim = ["prodigyopt", "schedulefree"]
+parquet = ["pyarrow"]
+# the GBC dataset format (KohakuGBC): graph records, prompt renderers, dataset reader
+gbc = ["kohakugbc-data>=0.1; python_version >= '3.11'"]
+wandb = ["wandb"]
+dev = ["pytest", "ruff", "black", "lpips", "kohakumoss[bench]"]
+bench = ["matplotlib", "pandas"]
+# default sets per accelerator (docs/guides/install.md)
+cuda = ["kohakumoss[kernels-cuda,quant]"]
+xpu = ["kohakumoss[kernels-xpu,quant]"]
+
+[project.scripts]
+kohakumoss-doctor = "kohakumoss.cli.doctor:main"
+kohakumoss-config = "kohakumoss.cli.config.main:main"
+kohakumoss-tune = "kohakumoss.cli.tune:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["kohakumoss*", "kohakumoss_common*", "kohakumoss_kernels*", "kohakumoss_data*"]
+
+[tool.setuptools.package-data]
+# the packaged Qwen3.5-9B config and tokenizer (Apache-2.0, see its NOTICE)
+"kohakumoss.encoders.text" = ["assets/*/*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+# black's default exclude minus `build`, which would skip build/ packages under src/
+exclude = '''
+/(\.direnv|\.eggs|\.git|\.hg|\.ipynb_checkpoints|\.mypy_cache|\.nox|\.pytest_cache|\.ruff_cache|\.tox|\.svn|\.venv[^/]*|\.vscode|__pypackages__|_build|buck-out|dist|venv)/|^/build/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# the bench matrix tests skip (importorskip) before importing the dev package
+"tests/bench/**" = ["E402"]
+
+[tool.ruff.lint.isort]
+# the bench matrix dev package (scripts/bench/matrix/src) is first-party too
+known-first-party = ["kohakumoss_bench"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "cpu: runs on CPU only",
+    "cuda: needs a CUDA GPU",
+    "sm70: needs sm70",
+    "sm75: needs sm75",
+    "sm86: needs sm86",
+    "sm89: needs sm89",
+    "sm120: needs sm120",
+    "xpu: needs an Intel XPU",
+    "gpu: needs a CUDA GPU or an Intel XPU",
+    "windows: Windows-specific",
+    "multi_gpu: needs two or more GPUs",
+    "real_weights: needs KOHAKUMOSS_WEIGHTS",
+    "slow: long-running",
+]

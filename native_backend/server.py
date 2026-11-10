@@ -36,6 +36,15 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request
 
+# A log line the console encoding can't represent (non-ASCII dataset paths
+# or tags) must not raise UnicodeEncodeError out of the reader thread -
+# that used to abandon the trainer with nobody draining its pipe.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except (AttributeError, OSError):
+        pass
+
 _lock = threading.Lock()
 _validated: dict | None = None  # last successful /validate payload
 _thread: threading.Thread | None = None
@@ -75,6 +84,14 @@ def create_app() -> Flask:
     _configure_logging()
     app = Flask(__name__)
 
+    @app.before_request
+    def _no_browsers():
+        # Only Anima Studio's own server talks to this one, and Python's
+        # `requests` sends neither header. A browser always sends at least one,
+        # so a web page can never drive training through here.
+        if request.headers.get("Origin") or request.headers.get("Sec-Fetch-Site"):
+            return jsonify({"detail": "Browsers may not call the training backend directly."}), 403
+
     @app.post("/validate")
     def validate():
         global _validated
@@ -105,17 +122,25 @@ def create_app() -> Flask:
         is_sdxl = request.args.get("sdxl", "False") == "True"
         is_flux = request.args.get("flux", "False") == "True"
         is_anima = request.args.get("anima", "False") == "True"
+        is_moss = request.args.get("moss", "False") == "True"
+        is_kohaku = request.args.get("kohaku", "False") == "True"
         train_mode = request.args.get("train_mode", "lora")
 
-        runner = _pick_runner(train_mode, is_sdxl, is_flux, is_anima)
+        runner = _pick_runner(train_mode, is_sdxl, is_flux, is_anima, is_moss, is_kohaku)
         if runner is None:
             return jsonify({
                 "detail": "Invalid Train Parameters",
-                "sdxl": is_sdxl, "flux": is_flux, "anima": is_anima, "train_mode": train_mode,
+                "sdxl": is_sdxl, "flux": is_flux, "anima": is_anima, "moss": is_moss, "kohaku": is_kohaku,
+                "train_mode": train_mode,
             }), 400
 
-        _stop_requested.clear()
         with _lock:
+            # re-check: a second /train can have passed the check above while
+            # this request was validating and picking its runner - only one
+            # may start, and the winner owns the stop-request flag
+            if _state["training"]:
+                return jsonify({"detail": "Training Already Running"}), 409
+            _stop_requested.clear()
             _state["training"] = True
             _state["errored"] = False
             _state["error_detail"] = None
@@ -172,10 +197,16 @@ def _validate_payload(args: dict, dataset: dict) -> list[str]:
     return errors
 
 
-def _pick_runner(train_mode: str, is_sdxl: bool, is_flux: bool, is_anima: bool):
-    """Which trainer to run: 'sdxl' / 'anima', or None for unsupported combinations."""
+def _pick_runner(train_mode: str, is_sdxl: bool, is_flux: bool, is_anima: bool, is_moss: bool = False,
+                 is_kohaku: bool = False):
+    """Which trainer to run: 'sdxl' / 'anima' / 'moss' / 'kohaku', or None for unsupported combinations."""
+    if is_kohaku:
+        # KohakuMoss trains LoRA-family adapters and full finetunes itself (its own algorithm setting)
+        return "kohaku" if not (is_sdxl or is_flux or is_anima or is_moss) else None
     if train_mode != "lora":
         return None  # this backend only implements LoRA training for now
+    if is_moss:
+        return "moss" if not (is_sdxl or is_flux or is_anima) else None
     if is_sdxl and not is_flux and not is_anima:
         return "sdxl"
     if is_anima and not is_sdxl and not is_flux:
@@ -254,14 +285,33 @@ def _run_training(kind: str, validated: dict) -> None:
         tmp.close()
         env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8",
                "PYTHONUTF8": "1"}
+        python = sys.executable
+        if kind == "moss":
+            # MOSS-Image has its own environment (torch 2.14 / CUDA 13); the Anima/SDXL venv cannot run it.
+            from . import moss_env
+            if not moss_env.has_venv():
+                raise RuntimeError("The MOSS-Image environment is not installed - open the Backend tab and press "
+                                   "'Set up MOSS-Image environment' first.")
+            python = str(moss_env.venv_python())
+        elif kind == "kohaku":
+            # KohakuMoss has its own environment too (torch 2.13-2.14, transformers 5.3+, kogine).
+            from . import kohaku_env
+            if not kohaku_env.has_venv():
+                raise RuntimeError("The KohakuMoss environment is not installed - open the Backend tab and press "
+                                   "'Set up KohakuMoss environment' first.")
+            python = str(kohaku_env.venv_python())
         proc = subprocess.Popen(
-            [sys.executable, "-u", "-m", "native_backend.train_worker", tmp.name, kind],
+            [python, "-u", "-m", "native_backend.train_worker", tmp.name, kind],
             cwd=str(_ROOT), env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             **({"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP}
                if sys.platform == "win32" else {"start_new_session": True}),
         )
         with _lock:
             _worker = proc
+        if _stop_requested.is_set():
+            # /stop_training arrived while this spawn was still in flight and
+            # had no process to kill yet - honour it now
+            _kill_tree(proc)
         # tqdm separates updates with \r, not \n - split on both
         buf = b""
         while True:
@@ -284,6 +334,12 @@ def _run_training(kind: str, validated: dict) -> None:
                     _state["error_detail"] = tail[0]
     except Exception as exc:  # noqa: BLE001 - reported via /is_training and /status
         traceback.print_exc()
+        with _lock:
+            proc = _worker
+        if proc is not None and proc.poll() is None:
+            # if the reader loop itself failed, kill the trainer rather than
+            # leave it running untracked with nobody draining its pipe
+            _kill_tree(proc)
         with _lock:
             _state["errored"] = True
             _state["error_detail"] = str(exc)

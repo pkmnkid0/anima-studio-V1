@@ -8,7 +8,6 @@ import subprocess
 import shutil
 import sys
 import os
-os.environ.setdefault("UV_LINK_MODE", "copy")  # no hardlink warning across drives
 import logging
 from pathlib import Path
 
@@ -124,37 +123,10 @@ def create_venv(uv: str, path: str = "venv", python_version: str = "3.11") -> st
             subprocess.check_call([uv, "venv", "--seed", existing])
         return existing
 
-    # A half-made venv (folder exists, no python inside - e.g. an interrupted
-    # earlier install) makes `uv venv` stop to ask "replace it?", which fails
-    # when nothing can answer (exit status 2). Clear it first.
-    import shutil as _sh
-    if Path(path).exists():
-        logger.info(f"Removing incomplete venv at '{path}'")
-        _sh.rmtree(path, ignore_errors=True)
-
-    attempts = [[uv, "venv", "--python", python_version, "--seed", path]]
-    # fall back to whatever Python is running this installer, then to any python uv can find
-    if (3, 10) <= sys.version_info[:2] <= (3, 12):
-        attempts.append([uv, "venv", "--python", sys.executable, "--seed", path])
-    attempts.append([uv, "venv", "--seed", path])
-
-    last = None
-    for cmd in attempts:
-        logger.info(f"Creating venv at '{path}': {' '.join(cmd[1:])}")
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        out = ((proc.stdout or "") + (proc.stderr or "")).strip()
-        if out:
-            print(out, flush=True)
-        if proc.returncode == 0 and get_venv_python(path).exists():
-            logger.info(f"Venv created at '{path}'")
-            return path
-        last = proc.returncode
-        if Path(path).exists():
-            _sh.rmtree(path, ignore_errors=True)
-    raise RuntimeError(
-        f"Couldn't create the virtual environment (uv exit {last}). Install Python 3.11 "
-        "from python.org (tick 'Add to PATH') or check your internet connection, then try again."
-    )
+    logger.info(f"Creating venv at '{path}' with Python {python_version}...")
+    subprocess.check_call([uv, "venv", "--python", python_version, "--seed", path])
+    logger.info(f"Venv created at '{path}'")
+    return path
 
 
 def get_venv_python_version(venv_dir: str = "venv") -> str:

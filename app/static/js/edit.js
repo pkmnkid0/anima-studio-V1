@@ -15,6 +15,13 @@ const Edit = (() => {
   const CROP_MIN_SIZE = 16;
   let baseImage = null;
   let zoom = null; // null = fit to container, otherwise a multiplier like 1.5
+  let redoStack = []; // strokes taken back by Undo, restored by Redo
+  let preview = null; // an AI result waiting for Accept / Discard: {img, mode: "same"|"scale"|"extend", dx, dy, bg}
+  let comparing = false; // holding "Hold to compare": show the original instead of the result
+  let pad = { l: 0, t: 0, r: 0, b: 0 }; // Extend tool: pixels added on each side
+  let markers = []; // Select tool: [{x, y, include}]
+  let liveSel = null; // the selection stroke Segment Anything is currently refining
+  const hooks = {}; // set by EditAI: onPreviewCleared, onToolChange, onSelectClick, runInpaint, runExtend, isAiMethod, cvRadius
 
   // duplicate finder selection state: path -> "keep" | "delete"
   const dupSelection = new Map();
@@ -45,18 +52,12 @@ const Edit = (() => {
     document.querySelectorAll("#eraser-tool-toggle button").forEach((btn) => {
       btn.addEventListener("click", () => selectTool(btn.dataset.tool));
     });
-    document.getElementById("eraser-brush-size").addEventListener("input", (e) => {
-      brushSize = parseInt(e.target.value, 10);
-      updateCursorSize();
-    });
+    document.getElementById("eraser-brush-size").addEventListener("input", (e) => setBrushSize(parseInt(e.target.value, 10)));
     document.getElementById("eraser-clear-mask").addEventListener("click", clearStrokes);
     document.getElementById("eraser-undo").addEventListener("click", undoStroke);
+    document.getElementById("eraser-redo").addEventListener("click", redoStroke);
     const delModal = document.getElementById("eraser-delete-modal");
     if (delModal) delModal.addEventListener("click", deleteCurrentImage);
-    const delBtn = document.getElementById("eraser-delete");
-    if (delBtn) delBtn.addEventListener("click", deleteCurrentImage);
-    const delModalBtn = document.getElementById("eraser-delete-modal");
-    if (delModalBtn) delModalBtn.addEventListener("click", deleteCurrentImage);
     const delBtnGrid = document.getElementById("eraser-delete");
     if (delBtnGrid) delBtnGrid.addEventListener("click", deleteCurrentImage);
     document.getElementById("eraser-close").addEventListener("click", closeEditor);
@@ -65,13 +66,21 @@ const Edit = (() => {
     document.getElementById("eraser-revert").addEventListener("click", revertImage);
     document.getElementById("eraser-prev-overlay").addEventListener("click", () => step(-1));
     document.getElementById("eraser-next-overlay").addEventListener("click", () => step(1));
-    document.getElementById("eraser-zoom-in").addEventListener("click", () => setZoom((zoom || 1) * 1.25));
-    document.getElementById("eraser-zoom-out").addEventListener("click", () => setZoom((zoom || 1) / 1.25));
+    document.getElementById("eraser-zoom-in").addEventListener("click", () => setZoom(curScale() * 1.25));
+    document.getElementById("eraser-zoom-out").addEventListener("click", () => setZoom(curScale() / 1.25));
     document.getElementById("eraser-zoom-label").addEventListener("click", () => setZoom(null));
+    document.getElementById("eraser-zoom-100").addEventListener("click", () => setZoom(1));
+    document.getElementById("eraser-keys-btn").addEventListener("click", toggleKeys);
+    initViewport();
+    restorePrefs();
+    refreshKeyHints();
+    Keybinds.onChange(refreshKeyHints);
     document.getElementById("eraser-aspect").addEventListener("change", (e) => {
       cropAspect = parseAspect(e.target.value);
       if (cropRect) {
-        cropRect = applyAspectToRect(cropRect, "se"); // re-fit the current rect, anchored top-left
+        // re-fit the current rect, anchored top-left, then pull it back
+        // inside the canvas so the saved crop matches the chosen aspect
+        cropRect = clampRectToCanvas(applyAspectToRect(cropRect, "se"));
         redraw();
       }
     });
@@ -80,8 +89,13 @@ const Edit = (() => {
     });
     document.getElementById("eraser-upscale-method").addEventListener("change", refreshUpscalerStatusIfNeeded);
     document.getElementById("eraser-upscaler-download-btn").addEventListener("click", startUpscalerDownload);
-    document.getElementById("eraser-upscaler-deps-btn").addEventListener("click", startUpscalerDepsInstall);
+    document.getElementById("eraser-upscaler-deps-goto").addEventListener("click", () => openView("backend"));
     refreshUpscalerStatusIfNeeded();
+    // Dependency installs live on the Backend tab now; re-check when the user
+    // comes back so the badge clears as soon as they are installed.
+    document.addEventListener("studio:viewchange", (e) => {
+      if (e.detail && e.detail.view === "edit") refreshUpscalerStatusIfNeeded();
+    });
     document.getElementById("resize-start-btn").addEventListener("click", startResizeJob);
     refreshResizeStatus();
     document.getElementById("eraser-crop-dest-browse").addEventListener("click", () => {
@@ -111,16 +125,19 @@ const Edit = (() => {
     canvas.addEventListener("touchstart", onPointerDown, { passive: false });
     canvas.addEventListener("touchmove", onPointerMove, { passive: false });
     canvas.addEventListener("touchend", onPointerUp);
+    // right-click excludes while Segment Anything is selecting, so the browser menu must not open there
+    canvas.addEventListener("contextmenu", (e) => { if (tool === "select") e.preventDefault(); });
 
     document.getElementById("eraser-modal").addEventListener("click", (e) => {
       if (e.target.id === "eraser-modal") closeEditor();
     });
-    document.addEventListener("keydown", (e) => {
-      if (!document.getElementById("eraser-modal").classList.contains("open")) return;
-      if (e.key === "Escape") closeEditor();
-      if (e.key === "ArrowLeft") step(-1);
-      if (e.key === "ArrowRight") step(1);
-    });
+    const modalEl = document.getElementById("eraser-modal");
+    // After a click or a choice in a dropdown, give the keyboard back to the editor (otherwise Enter / B / R keep
+    // going to the focused button or list instead of the hotkeys).
+    modalEl.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("button"); if (b && e.detail) b.blur(); });
+    modalEl.addEventListener("change", (e) => { if (e.target.matches && e.target.matches("select, input[type=range], input[type=checkbox]")) e.target.blur(); });
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keyup", onKeyUp);
 
     // Duplicate finder
     const thresholdInput = document.getElementById("dup-threshold");
@@ -156,7 +173,7 @@ const Edit = (() => {
   function applyUpscalerStatus(status) {
     const badge = document.getElementById("eraser-upscaler-badge");
     const btn = document.getElementById("eraser-upscaler-download-btn");
-    const depsBtn = document.getElementById("eraser-upscaler-deps-btn");
+    const depsBtn = document.getElementById("eraser-upscaler-deps-goto");
     if (!status.available) {
       badge.textContent = "needs torch + spandrel";
       badge.className = "badge rating-explicit";
@@ -175,60 +192,6 @@ const Edit = (() => {
     badge.textContent = "not downloaded";
     badge.className = "badge rating-questionable";
     btn.style.display = "inline-flex";
-  }
-
-  let upscalerDepsPollTimer = null;
-
-  async function startUpscalerDepsInstall() {
-    const btn = document.getElementById("eraser-upscaler-deps-btn");
-    const spinner = document.getElementById("eraser-upscaler-deps-spinner");
-    btn.disabled = true;
-    spinner.style.display = "inline-block";
-    try {
-      renderUpscalerDepsStatus(await Api.upscalerInstallDeps());
-      if (!upscalerDepsPollTimer) upscalerDepsPollTimer = setInterval(pollUpscalerDepsStatus, 1000);
-    } catch (err) {
-      toast(err.message, "error");
-      btn.disabled = false;
-      spinner.style.display = "none";
-    }
-  }
-
-  async function pollUpscalerDepsStatus() {
-    try {
-      renderUpscalerDepsStatus(await Api.upscalerInstallDepsStatus());
-    } catch { /* transient - next poll retries */ }
-  }
-
-  function renderUpscalerDepsStatus(status) {
-    const log = document.getElementById("eraser-upscaler-deps-log");
-    const btn = document.getElementById("eraser-upscaler-deps-btn");
-    const spinner = document.getElementById("eraser-upscaler-deps-spinner");
-
-    if (status.log_tail && status.log_tail.length) {
-      log.style.display = "block";
-      log.textContent = status.log_tail.join("\n");
-      log.scrollTop = log.scrollHeight;
-    }
-
-    if (status.stage === "installing") {
-      btn.disabled = true;
-      spinner.style.display = "inline-block";
-      return;
-    }
-
-    spinner.style.display = "none";
-    if (upscalerDepsPollTimer) { clearInterval(upscalerDepsPollTimer); upscalerDepsPollTimer = null; }
-
-    if (status.stage === "done") {
-      toast("Dependencies installed - UltraSharp is ready to use.", "success");
-      refreshUpscalerStatusIfNeeded();
-    } else if (status.stage === "error") {
-      btn.disabled = false;
-      toast(status.error || "Install failed - see the log.", "error");
-    } else {
-      btn.disabled = false;
-    }
   }
 
   async function startUpscalerDownload() {
@@ -321,6 +284,11 @@ const Edit = (() => {
 
     dot.classList.remove("ok", "bad");
     btn.disabled = status.stage === "running";
+    if (status.stage === "running" && !resizePollTimer) {
+      // A job started before this page loaded (or a reloaded tab) still
+      // needs its progress to tick, not just a static snapshot.
+      resizePollTimer = setInterval(refreshResizeStatus, 1000);
+    }
 
     if (status.stage === "running") {
       text.textContent = status.total ? `Resizing ${status.done}/${status.total}…` : "Scanning folder…";
@@ -415,7 +383,7 @@ const Edit = (() => {
       const img = images[idx];
       const card = h("div", { class: "caption-card" }, [
         h("div", { class: "thumb-wrap", style: "cursor:pointer", onclick: () => openEditorAt(idx) }, [
-          h("img", { src: Api.thumbUrl(img.path, 240), loading: "lazy" }),
+          h("img", { src: Api.thumbUrl(img.path, 240), loading: "lazy", decoding: "async" }),
         ]),
         h("div", { class: "body" }, [
           h("div", { class: "filename" }, img.filename),
@@ -454,29 +422,50 @@ const Edit = (() => {
   }
 
   function selectTool(newTool) {
+    if (preview && newTool !== tool) discardPreview();
     tool = newTool;
+    document.getElementById("eraser-canvas").style.cursor = "";      // the crop tool leaves a crosshair / resize cursor behind
     document.querySelectorAll("#eraser-tool-toggle button").forEach((b) => b.classList.toggle("active", b.dataset.tool === tool));
     const wrap = document.getElementById("eraser-canvas-wrap");
     wrap.classList.toggle("tool-rect", tool === "rect");
     wrap.classList.toggle("tool-crop", tool === "crop");
+    wrap.classList.toggle("tool-select", tool === "select");
+    wrap.classList.toggle("tool-extend", tool === "extend");
+    const show = (id, on, display = "flex") => { document.getElementById(id).style.display = on ? display : "none"; };
     document.getElementById("eraser-cursor").style.display = tool === "brush" ? "" : "none";
-    document.getElementById("eraser-brush-size-row").style.display = tool === "brush" ? "flex" : "none";
-    document.getElementById("eraser-method-row").style.display = tool === "crop" ? "none" : "flex";
-    document.getElementById("eraser-aspect-row").style.display = tool === "crop" ? "flex" : "none";
-    document.getElementById("eraser-upscale-row").style.display = tool === "crop" ? "flex" : "none";
-    document.getElementById("eraser-crop-dest-row").style.display = tool === "crop" ? "flex" : "none";
-    document.getElementById("eraser-apply").style.display = tool === "crop" ? "none" : "inline-flex";
-    document.getElementById("eraser-crop-apply").style.display = tool === "crop" ? "inline-flex" : "none";
+    show("eraser-brush-size-row", tool === "brush");
+    show("eraser-method-row", tool !== "crop");
+    show("eraser-aspect-row", tool === "crop");
+    show("eraser-upscale-row", tool === "crop");
+    show("eraser-crop-dest-row", tool === "crop");
+    show("eraser-mask-tools", tool === "brush" || tool === "rect" || tool === "select");
+    show("eraser-select-row", tool === "select");
+    show("eraser-extend-row", tool === "extend");
+    show("eraser-apply", tool !== "crop", "inline-flex");
+    show("eraser-crop-apply", tool === "crop", "inline-flex");
+    document.getElementById("eraser-apply").textContent = applyLabel();
+    const keys = "";
+    renderKeybar();
+    document.getElementById("eraser-hint").textContent = ({
+      brush: "Paint over the area to remove.",
+      rect: "Drag rectangles over the area to remove.",
+      select: "Click an object to select it (Segment Anything).",
+      extend: "Set how much to add on each side and pick a Stable Diffusion method.",
+      crop: "Drag the box to choose the crop.",
+    }[tool] || "") + keys;
     if (tool === "crop" && !cropRect && baseImage) initCropRect();
+    if (hooks.onToolChange) hooks.onToolChange(tool);
     redraw();
   }
+
+  function applyLabel() { return tool === "extend" ? "Extend" : "Erase"; }
 
   function initCropRect() {
     const canvas = document.getElementById("eraser-canvas");
     const marginX = canvas.width * 0.1;
     const marginY = canvas.height * 0.1;
     cropRect = { x0: marginX, y0: marginY, x1: canvas.width - marginX, y1: canvas.height - marginY };
-    if (cropAspect) cropRect = applyAspectToRect(cropRect, "se");
+    if (cropAspect) cropRect = clampRectToCanvas(applyAspectToRect(cropRect, "se"));
   }
 
   function parseAspect(value) {
@@ -548,6 +537,14 @@ const Edit = (() => {
     document.getElementById("eraser-revert").disabled = !imgMeta.has_backup;
     updatePrevNextButtons();
     strokes = [];
+    redoStack = [];
+    markers = [];
+    liveSel = null;
+    pad = { l: 0, t: 0, r: 0, b: 0 };
+    if (hooks.onImageChange) hooks.onImageChange();
+    const hadPreview = !!preview;
+    clearPreviewQuiet();
+    if (hadPreview && hooks.onPreviewCleared) hooks.onPreviewCleared();
     cropRect = null;
     cropDragMode = null;
     cropDragStart = null;
@@ -556,7 +553,9 @@ const Edit = (() => {
 
     const canvas = document.getElementById("eraser-canvas");
     const loader = new Image();
+    const reqIdx = idx;   // clicking through images fast: an older load finishing late must not win
     loader.onload = () => {
+      if (currentIndex !== reqIdx) return;
       baseImage = loader;
       canvas.width = loader.naturalWidth;
       canvas.height = loader.naturalHeight;
@@ -566,53 +565,437 @@ const Edit = (() => {
       applyZoomStyle();
       redraw();
     };
-    loader.onerror = () => toast("Couldn't load that image.", "error");
+    loader.onerror = () => { if (currentIndex === reqIdx) toast("Couldn't load that image.", "error"); };
     loader.src = Api.imageUrl(imgMeta.path, Date.now());
   }
 
   function closeEditor() {
+    if (preview) discardPreview();
     document.getElementById("eraser-modal").classList.remove("open");
   }
 
   // ------------------------------ zoom ------------------------------
 
-  function setZoom(newZoom) {
-    if (newZoom !== null) newZoom = Math.max(0.1, Math.min(6, newZoom));
+  const scrollEl = () => document.getElementById("eraser-scroll");
+  let spaceDown = false;
+  let pan = null;
+  let keysOpen = false;
+
+  // The scale that makes the whole picture fit the window (never beyond 3x for tiny pictures).
+  function fitScale() {
+    const sc = scrollEl(), c = document.getElementById("eraser-canvas");
+    if (!sc || !c.width || !c.height) return 1;
+    const w = sc.clientWidth - 24, h = sc.clientHeight - 24;
+    if (w <= 0 || h <= 0) return 1;
+    return Math.max(0.02, Math.min(w / c.width, h / c.height, 3));
+  }
+
+  function curScale() { return zoom === null ? fitScale() : zoom; }
+
+  function viewCenter() {
+    const r = scrollEl().getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  // Zoom (null = fit) keeping the picture point under `anchor` (client coordinates) where it is.
+  function setZoom(newZoom, anchor) {
+    if (newZoom !== null) newZoom = Math.max(0.02, Math.min(32, newZoom));
+    const canvas = document.getElementById("eraser-canvas");
+    const sc = scrollEl();
+    anchor = anchor || viewCenter();
+    const before = canvas.getBoundingClientRect();
+    const u = before.width ? (anchor.x - before.left) / before.width : 0.5;
+    const v = before.height ? (anchor.y - before.top) / before.height : 0.5;
     zoom = newZoom;
     applyZoomStyle();
     updateZoomLabel();
+    showHud(zoom === null ? `Fit ${Math.round(fitScale() * 100)}%` : `${Math.round(zoom * 100)}%`);
+    if (zoom !== null) {
+      const after = canvas.getBoundingClientRect();
+      sc.scrollLeft += after.left + u * after.width - anchor.x;
+      sc.scrollTop += after.top + v * after.height - anchor.y;
+    }
+    updateCursorSize();
+    drawMaskScreen();
   }
 
   function applyZoomStyle() {
     const canvas = document.getElementById("eraser-canvas");
-    if (zoom === null) {
-      canvas.style.width = "";
-      canvas.style.height = "";
-    } else {
-      canvas.style.width = `${canvas.width * zoom}px`;
-      canvas.style.height = `${canvas.height * zoom}px`;
-    }
+    const k = curScale();
+    canvas.style.width = `${canvas.width * k}px`;
+    canvas.style.height = `${canvas.height * k}px`;
+    scrollEl().classList.toggle("pixelated", k >= 8);   // smooth when zoomed in; hard pixels only at extreme zoom
+    updateZoomLabel();
+    drawMaskScreen();
   }
 
   function updateZoomLabel() {
-    document.getElementById("eraser-zoom-label").textContent = zoom === null ? "Fit" : `${Math.round(zoom * 100)}%`;
+    document.getElementById("eraser-zoom-label").textContent = zoom === null ? `Fit ${Math.round(fitScale() * 100)}%` : `${Math.round(zoom * 100)}%`;
+  }
+
+  function setBrushSize(n) {
+    brushSize = Math.max(2, Math.min(400, Math.round(n)));
+    document.getElementById("eraser-brush-size").value = brushSize;
+    document.getElementById("eraser-brush-val").textContent = brushSize;
+    updateCursorSize();
+    savePref("brush", brushSize);
+    showHud(`Brush ${brushSize}px`);
+  }
+
+  // ------------------------------ remembered settings, hud, shortcut strip ------------------------------
+
+  const PREF_KEY = "anima.eraser.prefs";
+  function loadPrefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY) || "{}") || {}; } catch { return {}; } }
+  function savePref(k, v) { try { const p = loadPrefs(); p[k] = v; localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* private mode */ } }
+
+  let hudTimer = null;
+  function showHud(text) {
+    const el = document.getElementById("eraser-hud");
+    if (!el || !document.getElementById("eraser-modal").classList.contains("open")) return;
+    el.textContent = text;
+    el.classList.add("show");
+    clearTimeout(hudTimer);
+    hudTimer = setTimeout(() => el.classList.remove("show"), 900);
+  }
+
+  // Always-visible hints for the current tool, built from the user's own keys.
+  function renderKeybar() {
+    const el = document.getElementById("eraser-keybar");
+    if (!el) return;
+    const has = (id) => Keybinds.keysOf(id).some(Boolean);
+    const k = (id) => `<kbd>${Keybinds.label(id)}</kbd>`;
+    // a hint is shown only when every action it mentions still has a key
+    const hint = (ids, text) => (ids.every(has) ? ids.map(k).join(" ") + " " + text : "");
+    const common = [hint(["run"], "run / accept"), `<kbd>Wheel</kbd> zoom`, hint(["pan"], "+drag move"),
+      [hint(["fit"], "fit"), hint(["actual"], "100%")].filter(Boolean).join("  "),
+      [hint(["undo"], "undo"), hint(["redo"], "redo")].filter(Boolean).join("  "), hint(["aiPanel"], "AI panel"), hint(["help"], "all keys")];
+    const byTool = {
+      brush: [hint(["brushSmaller", "brushLarger"], "brush size"), `<kbd>Alt</kbd>+wheel size`,
+        [hint(["maskGrow"], "grow"), hint(["maskShrink"], "shrink"), hint(["maskInvert"], "invert")].filter(Boolean).join("  ")],
+      rect: [[hint(["maskGrow"], "grow"), hint(["maskInvert"], "invert")].filter(Boolean).join("  ")],
+      select: [has("selectToggle") ? `click add  right-click / ${k("selectToggle")} remove` : "click add  right-click remove"],
+      extend: [], crop: [],
+    };
+    el.innerHTML = [...(byTool[tool] || []), ...common].filter(Boolean).map((t) => `<span>${t}</span>`).join("");
+  }
+
+  // The "?" popup lists every action with its current keys.
+  function renderKeysPop() {
+    const pop = document.getElementById("eraser-keys-pop");
+    if (!pop) return;
+    pop.innerHTML = "<b>Keyboard</b>";
+    let group = "";
+    for (const a of Keybinds.ACTIONS) {
+      if (a.group !== group) { group = a.group; pop.insertAdjacentHTML("beforeend", `<div class="keys-group">${group}</div>`); }
+      pop.insertAdjacentHTML("beforeend",
+        `<div><kbd>${Keybinds.label(a.id)}</kbd> ${a.label}</div>`);
+    }
+    pop.insertAdjacentHTML("beforeend",
+      `<div class="keys-group">Fixed</div><div><kbd>Esc</kbd> discard a result, or close</div>` +
+      `<div><kbd>Wheel</kbd> zoom to the cursor, <kbd>Ctrl</kbd>/<kbd>Alt</kbd>+wheel brush size, middle-drag to move</div>` +
+      `<div class="keys-foot">Change these in <b>App settings → Eraser keybinds</b>.</div>`);
+  }
+
+  function applyKeyTitles() {
+    const t = (id, text) => { const el = document.getElementById(id); if (el) el.title = text; };
+    t("eraser-undo", `Undo (${Keybinds.label("undo")})`);
+    t("eraser-redo", `Redo (${Keybinds.label("redo")})`);
+    t("eraser-zoom-out", `Zoom out (${Keybinds.label("zoomOut")} or mouse wheel)`);
+    t("eraser-zoom-in", `Zoom in (${Keybinds.label("zoomIn")} or mouse wheel)`);
+    t("eraser-zoom-label", `Fit to window (${Keybinds.label("fit")})`);
+    t("eraser-zoom-100", `Actual size (${Keybinds.label("actual")})`);
+    t("eraser-keys-btn", `Keyboard shortcuts (${Keybinds.label("help")})`);
+    t("eraser-brush-size", `Brush size (${Keybinds.label("brushSmaller")} and ${Keybinds.label("brushLarger")}, or Ctrl/Alt + mouse wheel)`);
+    t("eraser-prev-overlay", `Previous image (${Keybinds.label("prev")})`);
+    t("eraser-next-overlay", `Next image (${Keybinds.label("next")})`);
+    document.querySelectorAll("#eraser-tool-toggle button").forEach((btn) => {
+      const id = { brush: "toolBrush", rect: "toolRect", select: "toolSelect", extend: "toolExtend", crop: "toolCrop" }[btn.dataset.tool];
+      const key = btn.querySelector("kbd");
+      if (key && id) key.textContent = Keybinds.first(id) || "";
+    });
+  }
+
+  function refreshKeyHints() { renderKeybar(); renderKeysPop(); applyKeyTitles(); }
+
+  function restorePrefs() {
+    const p = loadPrefs();
+    if (typeof p.brush === "number") { brushSize = Math.max(2, Math.min(400, p.brush)); document.getElementById("eraser-brush-size").value = brushSize; document.getElementById("eraser-brush-val").textContent = brushSize; }
+    if (typeof p.copy === "boolean") document.getElementById("eraser-save-as-copy").checked = p.copy;
+    if (typeof p.maskAmount === "number") document.getElementById("eraser-mask-amount").value = p.maskAmount;
+    if (typeof p.sideW === "number") document.documentElement.style.setProperty("--eraser-side-w", `${p.sideW}px`);
+    document.getElementById("eraser-save-as-copy").addEventListener("change", (e) => savePref("copy", e.target.checked));
+    document.getElementById("eraser-mask-amount").addEventListener("change", (e) => savePref("maskAmount", parseInt(e.target.value, 10) || 8));
+    // drag the edge of the AI panel to resize it
+    const handle = document.getElementById("eraser-resizer");
+    handle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      handle.classList.add("dragging");
+      const move = (ev) => {
+        const w = Math.max(280, Math.min(720, window.innerWidth - ev.clientX));
+        document.documentElement.style.setProperty("--eraser-side-w", `${w}px`);
+      };
+      const up = () => {
+        handle.classList.remove("dragging");
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        savePref("sideW", parseInt(getComputedStyle(document.documentElement).getPropertyValue("--eraser-side-w"), 10) || 380);
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+    });
+  }
+
+  function toggleKeys(force) {
+    keysOpen = typeof force === "boolean" ? force : !keysOpen;
+    document.getElementById("eraser-keys-pop").style.display = keysOpen ? "block" : "none";
+  }
+
+  // Mouse wheel = zoom to the cursor (Alt + wheel = brush size), Space-drag or middle-drag = move around, and the fit
+  // follows the window while "Fit" is on.
+  function initViewport() {
+    const sc = scrollEl();
+    sc.addEventListener("wheel", (e) => {
+      if (!baseImage) return;
+      e.preventDefault();
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      // Ctrl or Alt + wheel = brush size (Ctrl would otherwise zoom the whole page); the other tools keep zooming.
+      if ((e.altKey || e.ctrlKey || e.metaKey) && tool === "brush") { setBrushSize(brushSize * Math.exp(-(dy || e.deltaX) * 0.002)); return; }
+      setZoom(curScale() * Math.exp(-dy * 0.0015), { x: e.clientX, y: e.clientY });
+    }, { passive: false });
+    // Ctrl + wheel anywhere over the editor must never reach the browser's own page zoom.
+    document.getElementById("eraser-modal").addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    }, { passive: false, capture: true });
+    sc.addEventListener("mousedown", (e) => {
+      if (e.button === 1 || (e.button === 0 && spaceDown)) {
+        e.preventDefault();
+        e.stopPropagation();
+        pan = { x: e.clientX, y: e.clientY, l: sc.scrollLeft, t: sc.scrollTop };
+        sc.classList.add("panning");
+      }
+    }, true);
+    window.addEventListener("mousemove", (e) => {
+      if (!pan) return;
+      sc.scrollLeft = pan.l - (e.clientX - pan.x);
+      sc.scrollTop = pan.t - (e.clientY - pan.y);
+    });
+    window.addEventListener("mouseup", () => { if (pan) { pan = null; sc.classList.remove("panning"); } });
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(() => { if (baseImage && zoom === null) applyZoomStyle(); else drawMaskScreen(); }).observe(sc);
+    sc.addEventListener("scroll", drawMaskScreen, { passive: true });
+    }
+  }
+
+  function setSpace(on) {
+    spaceDown = on;
+    const sc = scrollEl();
+    sc.classList.toggle("space-pan", on);
+    document.getElementById("eraser-cursor").style.display = on || tool !== "brush" ? "none" : "";
+  }
+
+  function onKeyDown(e) {
+    const modal = document.getElementById("eraser-modal");
+    if (!modal.classList.contains("open")) return;
+    // Not while the user is typing or on a control that uses the keys itself.
+    const t = e.target;
+    const textual = t && t.tagName === "INPUT" && !["range", "checkbox", "radio", "button", "color"].includes(t.type);
+    if (t && (textual || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+    if (e.key === "Escape") {
+      if (keysOpen) return toggleKeys(false);
+      if (preview) discardPreview(); else closeEditor();
+      return;
+    }
+    const action = Keybinds.actionFor(e);
+    if (!action) return;
+    if (t && t.tagName === "INPUT" && t.type === "range" && (action === "prev" || action === "next")) return;
+    const hold = action === "pan" || action === "compare";
+    if (e.repeat && hold) { e.preventDefault(); return; }
+    switch (action) {
+      case "run": e.preventDefault(); if (!e.repeat) applyOrAccept(); break;
+      case "undo": e.preventDefault(); undoStroke(); break;
+      case "redo": e.preventDefault(); redoStroke(); break;
+      case "prev": step(-1); break;
+      case "next": step(1); break;
+      case "toolBrush": e.preventDefault(); selectTool("brush"); break;
+      case "toolRect": e.preventDefault(); selectTool("rect"); break;
+      case "toolSelect": e.preventDefault(); selectTool("select"); break;
+      case "toolExtend": e.preventDefault(); selectTool("extend"); break;
+      case "toolCrop": e.preventDefault(); selectTool("crop"); break;
+      case "brushSmaller": e.preventDefault(); setBrushSize(Math.min(brushSize - 1, brushSize / 1.12)); break;
+      case "brushLarger": e.preventDefault(); setBrushSize(Math.max(brushSize + 1, brushSize * 1.12)); break;
+      case "zoomIn": e.preventDefault(); setZoom(curScale() * 1.25); break;
+      case "zoomOut": e.preventDefault(); setZoom(curScale() / 1.25); break;
+      case "fit": e.preventDefault(); setZoom(null); break;
+      case "actual": e.preventDefault(); setZoom(1); break;
+      case "clear": e.preventDefault(); clearStrokes(); break;
+      case "pan": e.preventDefault(); setSpace(true); break;
+      case "compare": if (preview) { comparing = true; redraw(); } break;
+      case "help": toggleKeys(); break;
+      case "selectToggle": {
+        if (tool === "select") { const b = document.querySelector("#eraser-sel-mode button:not(.active)"); if (b) b.click(); }
+        break;
+      }
+      case "aiPanel": {
+        const b = document.getElementById("eraser-ai-toggle");
+        if (b && b.offsetParent !== null) { e.preventDefault(); b.click(); }
+        break;
+      }
+      case "maskGrow": case "maskShrink": case "maskInvert": {
+        const op = action === "maskInvert" ? "reverse" : action === "maskShrink" ? "shrink" : "expand";
+        const b = document.querySelector(`#eraser-mask-tools [data-mask-op="${op}"]`);
+        if (b && document.getElementById("eraser-mask-tools").offsetParent !== null) {
+          e.preventDefault();
+          b.click();
+          showHud(`Mask: ${op === "reverse" ? "inverted" : op === "expand" ? "grown" : "shrunk"}`);
+        }
+        break;
+      }
+      default: break;
+    }
+  }
+
+  function onKeyUp(e) {
+    if (!document.getElementById("eraser-modal").classList.contains("open")) return;
+    const released = Keybinds.releasedHold(e);
+    if (released === "pan") { e.preventDefault(); setSpace(false); }
+    if (released === "compare" && comparing && preview) { comparing = false; redraw(); }
+  }
+
+  // Enter: accept a waiting AI result, otherwise run the current tool (Erase / Extend / Apply crop).
+  function applyOrAccept() {
+    const accept = document.getElementById("eraser-accept");
+    if (preview && accept && accept.offsetParent !== null) return accept.click();
+    const id = tool === "crop" ? "eraser-crop-apply" : "eraser-apply";
+    const btn = document.getElementById(id);
+    if (btn && !btn.disabled) btn.click();
   }
 
   // ------------------------------ drawing ------------------------------
 
-  function redraw() {
+  // What the canvas shows right now: the picture, the picture with the Extend margins, or an AI result.
+  function viewSize() {
     const canvas = document.getElementById("eraser-canvas");
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (baseImage) ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+    if (!baseImage) return { w: canvas.width, h: canvas.height };
+    const bw = baseImage.naturalWidth, bh = baseImage.naturalHeight;
+    if (preview) return { w: preview.img.naturalWidth, h: preview.img.naturalHeight };
+    if (tool === "extend") return { w: bw + pad.l + pad.r, h: bh + pad.t + pad.b };
+    return { w: bw, h: bh };
+  }
 
+  // The painted mask over the picture, drawn on its own canvas at SCREEN resolution (not the picture's), so the fill
+  // and its outline stay smooth at any zoom. One flat see-through tint (overlapping strokes do not get darker) plus
+  // a thin solid line around the painted area (about 1.6 screen pixels at any zoom).
+  const MASK_ALPHA = 0.38;
+  let fillLayer = null, ringLayer = null;
+  function drawMaskScreen() {
+    const ov = document.getElementById("eraser-mask-overlay");
+    const wrap = document.getElementById("eraser-canvas-wrap");
+    const canvas = document.getElementById("eraser-canvas");
+    if (!ov || !wrap) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = Math.max(1, Math.round(wrap.clientWidth * dpr)), H = Math.max(1, Math.round(wrap.clientHeight * dpr));
+    if (ov.width !== W || ov.height !== H) { ov.width = W; ov.height = H; }
+    const ctx = ov.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (!strokes.length || preview || tool === "extend" || !baseImage || !canvas.width) return;
+    const cr = canvas.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    const k = cr.width / canvas.width;
+    if (!(k > 0)) return;
+    if (!fillLayer) { fillLayer = document.createElement("canvas"); ringLayer = document.createElement("canvas"); }
+    for (const c of [fillLayer, ringLayer]) if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const f = fillLayer.getContext("2d");
+    f.setTransform(1, 0, 0, 1, 0, 0);
+    f.globalCompositeOperation = "source-over";
+    f.clearRect(0, 0, W, H);
+    f.imageSmoothingEnabled = true; f.imageSmoothingQuality = "high";
+    f.setTransform(dpr * k, 0, 0, dpr * k, dpr * (cr.left - wr.left), dpr * (cr.top - wr.top));
+    for (const stroke of strokes) drawStroke(f, stroke, "white");
+    f.setTransform(1, 0, 0, 1, 0, 0);
+    f.globalCompositeOperation = "source-in";
+    f.fillStyle = "rgb(206, 158, 90)";
+    f.fillRect(0, 0, W, H);
+    ctx.globalAlpha = MASK_ALPHA;
+    ctx.drawImage(fillLayer, 0, 0);
+    ctx.globalAlpha = 1;
+    // outline: the shape shifted around in a circle, then the inside cut out
+    const r = ringLayer.getContext("2d");
+    r.globalCompositeOperation = "source-over";
+    r.clearRect(0, 0, W, H);
+    const w = 1.6 * dpr;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      r.drawImage(fillLayer, Math.cos(a) * w, Math.sin(a) * w);
+    }
+    r.globalCompositeOperation = "source-in";
+    r.fillStyle = "#f0cf94";
+    r.fillRect(0, 0, W, H);
+    r.globalCompositeOperation = "destination-out";
+    r.drawImage(fillLayer, 0, 0);
+    ctx.drawImage(ringLayer, 0, 0);
+  }
+
+  function renderMask() {
     const mctx = maskCanvas.getContext("2d");
     mctx.fillStyle = "black";
     mctx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    for (const stroke of strokes) drawStroke(mctx, stroke, "white");
+  }
 
-    for (const stroke of strokes) {
-      drawStroke(ctx, stroke, "rgba(206, 158, 90, 0.55)");
-      drawStroke(mctx, stroke, "white");
+  function redraw() {
+    redrawPicture();
+    drawMaskScreen();
+  }
+
+  function redrawPicture() {
+    const canvas = document.getElementById("eraser-canvas");
+    const size = viewSize();
+    if (canvas.width !== size.w || canvas.height !== size.h) {
+      canvas.width = size.w;
+      canvas.height = size.h;
+      applyZoomStyle();
+    }
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (preview) {
+      if (!comparing) {
+        if (preview.bg) { ctx.fillStyle = preview.bg; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        ctx.drawImage(preview.img, 0, 0);
+      } else if (baseImage) {
+        if (preview.mode === "extend") ctx.drawImage(baseImage, preview.dx, preview.dy);
+        else ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+      }
+      return;
+    }
+
+    if (tool === "extend" && baseImage) {
+      ctx.fillStyle = "rgba(206, 158, 90, 0.18)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(baseImage, pad.l, pad.t);
+      ctx.strokeStyle = "#e7edf0";
+      ctx.lineWidth = Math.max(2, canvas.width / 400);
+      ctx.setLineDash([canvas.width / 60, canvas.width / 90]);
+      ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, canvas.width - ctx.lineWidth, canvas.height - ctx.lineWidth);
+      ctx.setLineDash([]);
+      return;
+    }
+
+    if (baseImage) ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+
+    renderMask();
+
+    if (tool === "select" && markers.length) {
+      const r = Math.max(5, canvas.width / 150);
+      for (const m of markers) {
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = m.include ? "#3ddc84" : "#ff5252";
+        ctx.fill();
+        ctx.lineWidth = Math.max(1.5, r / 3);
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+      }
     }
 
     if (tool === "crop" && cropRect) {
@@ -664,6 +1047,10 @@ const Edit = (() => {
   }
 
   function drawStroke(ctx, stroke, color) {
+    if (stroke.type === "sel") {                 // an AI selection: pre-rendered as a tinted and a white-on-transparent layer
+      ctx.drawImage(color === "white" ? stroke.white : stroke.tint, 0, 0);
+      return;
+    }
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
     ctx.lineJoin = "round";
@@ -743,9 +1130,14 @@ const Edit = (() => {
   }
 
   function onPointerDown(e) {
-    if (!baseImage) return;
+    if (!baseImage || preview || tool === "extend") return;
     e.preventDefault();
     const pt = canvasPoint(e);
+    if (tool === "select") {
+      if (hooks.onSelectClick) hooks.onSelectClick(pt, !(e.button === 2 || e.shiftKey));
+      return;
+    }
+    if (tool === "brush" || tool === "rect") redoStack = [];
     if (tool === "brush") {
       isDrawing = true;
       strokes.push({ type: "brush", points: [pt], size: brushSize });
@@ -777,7 +1169,7 @@ const Edit = (() => {
     // mousemove is now bound on window (see init) so drags stay smooth
     // past the canvas edge - guard here so that doesn't mean doing work
     // on every mouse move across the whole page while the editor is closed.
-    if (!baseImage || !document.getElementById("eraser-modal").classList.contains("open")) return;
+    if (!baseImage || preview || !document.getElementById("eraser-modal").classList.contains("open")) return;
     if (tool === "crop") {
       // Update the hover cursor even when not actively dragging.
       if (!isDrawing) {
@@ -859,20 +1251,201 @@ const Edit = (() => {
 
   function clearStrokes() {
     strokes = [];
+    redoStack = [];
+    markers = [];
+    liveSel = null;
+    if (hooks.onMaskCleared) hooks.onMaskCleared();
     if (tool === "crop") initCropRect();
     redraw();
   }
 
+  // Undo / Redo: first the strokes you have painted but not applied; once there are none, the edits already applied
+  // to the picture (each erase, crop or AI result is saved aside before it overwrites the file).
   function undoStroke() {
-    if (tool === "crop") initCropRect();
-    else strokes.pop();
+    if (preview) return;
+    if (tool === "crop") { initCropRect(); redraw(); return; }
+    if (strokes.length) {
+      const popped = strokes.pop();
+      redoStack.push(popped);
+      if (popped === liveSel) {
+        liveSel = null;
+        markers = [];
+        if (hooks.onMaskCleared) hooks.onMaskCleared();
+      }
+      redraw();
+      return;
+    }
+    stepImage("undo");
+  }
+
+  function redoStroke() {
+    if (preview) return;
+    if (tool !== "crop" && redoStack.length) {
+      strokes.push(redoStack.pop());
+      redraw();
+      return;
+    }
+    stepImage("redo");
+  }
+
+  let stepping = false;
+  async function stepImage(step) {
+    if (currentIndex < 0 || stepping) return;
+    const imgMeta = images[currentIndex];
+    stepping = true;
+    try {
+      const r = await Api.editHistory({ step, image_path: imgMeta.path });
+      if (!r.ok) { showHud(step === "undo" ? "Nothing to undo" : "Nothing to redo"); return; }
+      strokes = []; redoStack = []; markers = []; liveSel = null;
+      if (hooks.onMaskCleared) hooks.onMaskCleared();
+      await openEditorAt(currentIndex);
+      renderGrid();
+      showHud(step === "undo" ? `Undid the last edit (${r.undo} more)` : `Redid the edit (${r.redo} more)`);
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      stepping = false;
+    }
+  }
+
+  // ------------------------------ AI helpers (used through `bridge`) ------------------------------
+
+  // A black/white mask picture (white = the area) -> a stroke drawn as a tinted overlay and as white on the mask canvas.
+  function maskToStroke(src) {
+    const w = maskCanvas.width, h = maskCanvas.height;
+    const tmp = document.createElement("canvas");
+    tmp.width = w; tmp.height = h;
+    const tctx = tmp.getContext("2d");
+    tctx.drawImage(src, 0, 0, w, h);
+    const px = tctx.getImageData(0, 0, w, h).data;
+    const mk = (r, g, b, a) => {
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const cctx = c.getContext("2d");
+      const out = cctx.createImageData(w, h);
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i] >= 127) { out.data[i] = r; out.data[i + 1] = g; out.data[i + 2] = b; out.data[i + 3] = a; }
+      }
+      cctx.putImageData(out, 0, 0);
+      return c;
+    };
+    return { type: "sel", tint: mk(206, 158, 90, 140), white: mk(255, 255, 255, 255) };
+  }
+
+  function maskBounds() {
+    renderMask();
+    const w = maskCanvas.width, h = maskCanvas.height;
+    const px = maskCanvas.getContext("2d").getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) {
+      const row = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        if (px[row + x * 4] >= 127) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          y1 = y;
+        }
+      }
+    }
+    return x1 < 0 ? null : { x0, y0, x1: x1 + 1, y1: y1 + 1 };
+  }
+
+  function setSelection(img) {
+    const stroke = maskToStroke(img);
+    const i = liveSel ? strokes.indexOf(liveSel) : -1;
+    if (i >= 0) strokes[i] = stroke; else strokes.push(stroke);
+    liveSel = stroke;
+    redoStack = [];
     redraw();
   }
+
+  function setMaskFromImage(img) {
+    strokes = [maskToStroke(img)];
+    redoStack = [];
+    liveSel = null;
+    markers = [];
+    redraw();
+  }
+
+  function clearSelection() {
+    const i = liveSel ? strokes.indexOf(liveSel) : -1;
+    if (i >= 0) strokes.splice(i, 1);
+    liveSel = null;
+    markers = [];
+    redraw();
+  }
+
+  function setPreview(p) {
+    preview = { mode: "same", dx: 0, dy: 0, bg: null, ...p };
+    comparing = false;
+    document.getElementById("eraser-canvas-wrap").classList.add("has-preview");
+    redraw();
+  }
+
+  function clearPreviewQuiet() {
+    preview = null;
+    comparing = false;
+    document.getElementById("eraser-canvas-wrap").classList.remove("has-preview");
+  }
+
+  function discardPreview() {
+    clearPreviewQuiet();
+    redraw();
+    if (hooks.onPreviewCleared) hooks.onPreviewCleared();
+  }
+
+  const samePath = (a, b) => String(a).replace(/\\/g, "/").toLowerCase() === String(b).replace(/\\/g, "/").toLowerCase();
+
+  // A result was written to disk by /api/edit/ai/commit: reload the picture, or refresh the list when a copy was made.
+  async function afterCommit(savedPath) {
+    const imgMeta = images[currentIndex];
+    clearPreviewQuiet();
+    const inPlace = imgMeta && samePath(savedPath, imgMeta.path);
+    if (inPlace) {
+      imgMeta.has_backup = true;
+      openEditorAt(currentIndex);
+      renderGrid();
+    } else {
+      toast(`Saved: ${String(savedPath).split(/[\\/]/).pop()}`, "success");
+      await load();
+    }
+  }
+
+  const bridge = {
+    hooks,
+    hasImage: () => currentIndex >= 0 && !!baseImage,
+    imagePath: () => (currentIndex >= 0 && images[currentIndex] ? images[currentIndex].path : ""),
+    folder: () => currentFolder,
+    tool: () => tool,
+    size: () => (baseImage ? { w: baseImage.naturalWidth, h: baseImage.naturalHeight } : null),
+    saveAsCopy: () => document.getElementById("eraser-save-as-copy").checked,
+    hasMask: () => strokes.length > 0,
+    maskDataUrl: () => { renderMask(); return maskCanvas.toDataURL("image/png"); },
+    maskBounds,
+    getPad: () => ({ ...pad }),
+    setPad: (p) => { pad = { l: p.l | 0, t: p.t | 0, r: p.r | 0, b: p.b | 0 }; if (tool === "extend" && !preview) redraw(); },
+    setMarkers: (list) => { markers = list; redraw(); },
+    setSelection,
+    clearSelection,
+    commitSelection: () => { liveSel = null; markers = []; redraw(); },
+    setMaskFromImage,
+    setPreview,
+    discardPreview,
+    setCompare: (on) => { if (preview) { comparing = !!on; redraw(); } },
+    hasPreview: () => !!preview,
+    afterCommit,
+    redraw,
+  };
 
   // ------------------------------ apply actions ------------------------------
 
   async function applyErase() {
     if (currentIndex < 0) return;
+    if (preview) return toast("Accept or discard the AI result first.", "info");
+    if (tool === "extend") return hooks.runExtend ? hooks.runExtend() : toast("The AI tools are not loaded.", "error");
+    const methodValue = document.getElementById("eraser-method").value;
+    if (hooks.isAiMethod && hooks.isAiMethod(methodValue)) return hooks.runInpaint();
     if (strokes.length === 0) return toast("Paint over the area to erase first.", "error");
     const imgMeta = images[currentIndex];
     const maskB64 = maskCanvas.toDataURL("image/png");
@@ -884,8 +1457,8 @@ const Edit = (() => {
       const data = await Api.editInpaint({
         image_path: imgMeta.path,
         mask: maskB64,
-        method: document.getElementById("eraser-method").value,
-        radius: 4,
+        method: methodValue.replace(/^cv:/, ""),
+        radius: hooks.cvRadius ? hooks.cvRadius() : 4,
         save_as_copy: saveAsCopy,
       });
       if (saveAsCopy) {
@@ -901,7 +1474,7 @@ const Edit = (() => {
       toast(err.message, "error");
     } finally {
       btn.disabled = false;
-      btn.textContent = "Erase";
+      btn.textContent = applyLabel();
     }
   }
 
@@ -1021,7 +1594,7 @@ const Edit = (() => {
             label.textContent = dupSelection.get(member.path) === "keep" ? "Keep" : "Delete";
           },
         }, [
-          h("img", { src: Api.thumbUrl(member.path, 160), loading: "lazy" }),
+          h("img", { src: Api.thumbUrl(member.path, 160), loading: "lazy", decoding: "async" }),
         ]);
         const label = h("span", { class: "dup-label" }, state === "keep" ? "Keep" : "Delete");
         thumb.appendChild(label);
@@ -1045,6 +1618,8 @@ const Edit = (() => {
     if (!confirm(`Delete "${img.filename}" and its caption file? This can't be undone.`)) return;
     try {
       const data = await Api.editDeleteImages([img.path]);
+      const r = (data.results || []).find((x) => x.path === img.path);
+      if (r && r.status === "error") throw new Error(r.reason || "Couldn't delete that file.");
       toast(`Deleted "${img.filename}".`, "success");
       images = images.filter((i) => i.path !== img.path);
       renderGrid();
@@ -1059,7 +1634,9 @@ const Edit = (() => {
     if (!confirm(`Delete ${toDelete.length} image${toDelete.length === 1 ? "" : "s"}? This can't be undone.`)) return;
     try {
       const data = await Api.editDeleteImages(toDelete);
-      toast(`Deleted ${data.deleted} image${data.deleted === 1 ? "" : "s"}.`, "success");
+      const failed = (data.results || []).filter((r) => r.status === "error").length;
+      toast(`Deleted ${data.deleted} image${data.deleted === 1 ? "" : "s"}.${failed ? ` ${failed} couldn't be deleted.` : ""}`,
+            failed ? "error" : "success");
       document.getElementById("dup-results").innerHTML = "";
       dupSelection.clear();
       await load();
@@ -1074,7 +1651,9 @@ const Edit = (() => {
     const img = images[currentIndex];
     if (!confirm(`Delete "${img.filename}" and its caption file? This can't be undone.`)) return;
     try {
-      await Api.editDeleteImages([img.path]);
+      const data = await Api.editDeleteImages([img.path]);
+      const r = (data.results || []).find((x) => x.path === img.path);
+      if (r && r.status === "error") throw new Error(r.reason || "Couldn't delete that file.");
       toast(`Deleted "${img.filename}".`, "success");
       closeEditor();
       images = images.filter((i) => i.path !== img.path);
@@ -1084,5 +1663,5 @@ const Edit = (() => {
     }
   }
 
-  return { init, setFolder: (path) => { document.getElementById("edit-folder").value = path; load(); } };
+  return { init, bridge, setFolder: (path) => { document.getElementById("edit-folder").value = path; load(); } };
 })();

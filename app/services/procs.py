@@ -40,12 +40,22 @@ def kill_tree(proc: subprocess.Popen | None) -> None:
             pass
 
 
+_extra: list[subprocess.Popen] = []
+
+
+def register(proc: subprocess.Popen) -> None:
+    """A process launched by a service (a model download, say) that should not
+    outlive the app either."""
+    _extra.append(proc)
+
+
 def shutdown_all() -> None:
     """Stop every process Anima Studio launched. Safe to call more than once."""
     from . import backend_manager, backend_setup
-    for mod in (backend_manager, backend_setup):
+    procs = [getattr(backend_manager, "_proc", None), getattr(backend_setup, "_proc", None), *_extra]
+    for proc in procs:
         try:
-            kill_tree(getattr(mod, "_proc", None))
+            kill_tree(proc)
         except Exception:  # noqa: BLE001
             pass
 

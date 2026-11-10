@@ -1,16 +1,17 @@
 import os
 from flask import Flask, jsonify, render_template, request
-from flask_cors import CORS
 
-from .routes import projects, collect, edit, caption, train, monitor, explore, files, analyze, pages, appsettings
+from . import config, security
+from .routes import projects, collect, edit, caption, train, monitor, explore, files, analyze, pages, appsettings, update
 
 
 def create_app() -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0  # never serve a stale explore.js/css after an update
-    CORS(app)
+    security.install(app, config.HOST)   # same-origin only: no CORS, host allow-list, safe headers
 
+    app.register_blueprint(update.bp, url_prefix="/api/update")
     app.register_blueprint(projects.bp, url_prefix="/api/projects")
     app.register_blueprint(collect.bp, url_prefix="/api/collect")
     app.register_blueprint(explore.bp, url_prefix="/api/explore")

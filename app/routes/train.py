@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request, Response
 from .. import config, schema, train_config
 from ..toml_writer import dumps as toml_dumps
 from ..services import backend_client, backend_manager, backend_setup
-from ..services import analysis, calculator, history, packager, recommend
+from ..services import analysis, calculator, history, kohaku_setup, lora_slim, moss_setup, packager, recommend
 from ..services import queue as train_queue
 
 bp = Blueprint("train", __name__)
@@ -60,6 +60,11 @@ def load_toml_from_disk():
         text = p.read_text(encoding="utf-8")
     except OSError as exc:
         return jsonify({"error": f"Couldn't read {path}: {exc}"}), 400
+    except UnicodeDecodeError:
+        try:                       # UTF-16/ANSI .toml saved by another tool
+            text = p.read_text(encoding="utf-16")
+        except (OSError, UnicodeDecodeError):
+            text = p.read_text(encoding="utf-8", errors="replace")
 
     try:
         doc = tomllib.loads(text)
@@ -87,9 +92,12 @@ def save_toml_to_disk():
     if not directory:
         return jsonify({"error": "Choose a destination folder first."}), 400
 
-    payload = train_config.build_backend_payload(ui)
-    doc = train_config.to_toml_document(payload)
-    text = toml_dumps(doc)
+    try:
+        payload = train_config.build_backend_payload(ui)
+        doc = train_config.to_toml_document(payload)
+        text = toml_dumps(doc)
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({"error": f"Couldn't build the config: {exc} - check for a number field that was left empty."}), 400
 
     if not filename:
         filename = (payload["args"].get("saving_args", {}).get("output_name") or "anima_lora_config") + ".toml"
@@ -155,12 +163,48 @@ def _caption_warnings(subset: dict) -> list[str]:
         return []
 
 
+def _kohaku_warnings(k: dict) -> list[str]:
+    """Problems with the Low-VRAM trainer settings that a run would otherwise hit minutes in."""
+    out = []
+    if not kohaku_setup.kohaku_env.has_venv():
+        out.append("The Low-VRAM trainer environment is not installed - open the Backend tab and press 'Set up Low-VRAM trainer environment'.")
+    weights = str(k.get("kohaku_weights", "")).strip().strip('"')
+    if not weights:
+        out.append("No Low-VRAM trainer weights folder set.")
+    else:
+        try:
+            from native_backend import kohaku_config          # stdlib-only module of the training backend
+            out.extend(kohaku_config.inspect_weights(weights, str(k.get("kohaku_variant") or "base"),
+                                                     str(k.get("kohaku_transformer", "")).strip(),
+                                                     str(k.get("kohaku_text_encoder", "")).strip(),
+                                                     str(k.get("kohaku_vae", "")).strip())["problems"])
+        except ImportError:
+            pass
+    try:
+        if int(float(k.get("kohaku_sample_every") or 0)) > 0 and not str(k.get("kohaku_sample_prompts", "")).strip():
+            out.append("Low-VRAM trainer sampling is on but there are no sample prompts.")
+    except (TypeError, ValueError):
+        out.append("Sample every must be a number.")
+    return out
+
+
 def _validation_warnings(payload: dict) -> list[str]:
     warnings = []
     general = payload["args"].get("general_args", {})
     anima = payload["args"].get("anima_args", {})
     saving = payload["args"].get("saving_args", {})
-    if general.get("sdxl"):
+    moss = payload["args"].get("moss_args", {})
+    kohaku = payload["args"].get("kohaku_args", {})
+    if kohaku:
+        warnings.extend(_kohaku_warnings(kohaku))
+    elif moss:
+        if not moss.get("pretrained_model_name_or_path"):
+            warnings.append("No MOSS-Image model folder set.")
+        if not moss.get("moss_text_encoder") and not moss.get("pretrained_model_name_or_path"):
+            warnings.append("No text encoder path set.")
+        if moss.get("moss_int8_bwd") and not moss.get("moss_int8"):
+            warnings.append("INT8 backward needs INT8 base on.")
+    elif general.get("sdxl"):
         # SDXL: the base model lives in general_args, and the
         # Anima-specific fields above are legitimately absent.
         if not general.get("pretrained_model_name_or_path"):
@@ -194,9 +238,12 @@ def build():
     without saving or training - used for live preview and for the
     "Download TOML" action."""
     ui = request.get_json(force=True) or {}
-    payload = train_config.build_backend_payload(ui)
-    doc = train_config.to_toml_document(payload)
-    text = toml_dumps(doc)
+    try:
+        payload = train_config.build_backend_payload(ui)
+        doc = train_config.to_toml_document(payload)
+        text = toml_dumps(doc)
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({"error": f"Couldn't build the config: {exc} - check for a number field that was left empty."}), 400
     return jsonify({
         "payload": payload,
         "toml": text,
@@ -207,9 +254,12 @@ def build():
 @bp.post("/download_toml")
 def download_toml():
     ui = request.get_json(force=True) or {}
-    payload = train_config.build_backend_payload(ui)
-    doc = train_config.to_toml_document(payload)
-    text = toml_dumps(doc)
+    try:
+        payload = train_config.build_backend_payload(ui)
+        doc = train_config.to_toml_document(payload)
+        text = toml_dumps(doc)
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({"error": f"Couldn't build the config: {exc} - check for a number field that was left empty."}), 400
     filename = (payload["args"].get("saving_args", {}).get("output_name") or "anima_lora_config") + ".toml"
     return Response(
         text, mimetype="application/toml",
@@ -270,7 +320,10 @@ def backend_start():
     body = request.get_json(force=True) or {}
     ui = body.get("ui", {})
     url = body.get("backend_url", config.DEFAULT_BACKEND_URL)
-    payload = train_config.build_backend_payload(ui)
+    try:
+        payload = train_config.build_backend_payload(ui)
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({"error": f"Couldn't build the training config: {exc} - check for a number field that was left empty."}), 400
     dataset_with_subsets = {**payload["dataset"], "subsets": payload["subsets"]}
 
     try:
@@ -281,6 +334,8 @@ def backend_start():
             has_sdxl=bool(payload["args"].get("general_args", {}).get("sdxl")),
             has_flux=bool(payload["args"].get("flux_args")),
             has_anima=bool(payload["args"].get("anima_args")),
+            has_moss=bool(payload["args"].get("moss_args")),
+            has_kohaku=bool(payload["args"].get("kohaku_args")),
             accelerate=ui.get("accelerate", {}),
         )
     except backend_client.BackendError as exc:
@@ -389,6 +444,12 @@ def backend_setup_input():
         return jsonify({"error": str(exc)}), 400
 
 
+@bp.get("/backend/verify")
+def backend_verify():
+    """End-to-end check of the backend install: files, environment, CUDA, packages, process."""
+    return jsonify(backend_setup.verify())
+
+
 # --- Training presets (§5) ------------------------------------------
 # Distinct from the user-saved UI presets above: these are the
 # curated per-(model type, project type) starting points.
@@ -400,6 +461,102 @@ def training_presets():
         return jsonify({"presets": recommend.presets(model_type)})
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+# --- MOSS-Image environment + model ------------------------------------
+
+@bp.get("/moss/setup/status")
+def moss_setup_status():
+    return jsonify(moss_setup.status())
+
+
+@bp.post("/moss/setup/start")
+def moss_setup_start():
+    try:
+        return jsonify(moss_setup.start())
+    except moss_setup.SetupError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@bp.post("/moss/setup/cancel")
+def moss_setup_cancel():
+    return jsonify(moss_setup.cancel())
+
+
+@bp.get("/moss/verify")
+def moss_verify():
+    return jsonify(moss_setup.verify())
+
+
+@bp.get("/moss/model/status")
+def moss_model_status():
+    return jsonify({"download": moss_setup.download_status(),
+                    "model": moss_setup.model_status(request.args.get("path", ""))})
+
+
+@bp.post("/moss/model/download")
+def moss_model_download():
+    body = request.get_json(force=True) or {}
+    try:
+        return jsonify(moss_setup.start_download(str(body.get("dest", "")).strip().strip('"')))
+    except moss_setup.SetupError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@bp.post("/moss/model/cancel")
+def moss_model_cancel():
+    return jsonify(moss_setup.cancel_download())
+
+
+@bp.get("/moss/profiles")
+def moss_profiles():
+    """VRAM tiers for MOSS-Image: the Train tab applies one to the model fields, and the GPU strip's
+    detected VRAM picks the default."""
+    vram = request.args.get("vram_gb", type=float)
+    return jsonify({"profiles": recommend.MOSS_VRAM_PROFILES, "suggested": recommend.moss_profile_for(vram)})
+
+
+# --- Low-VRAM trainer environment ---------------------------------------------
+
+@bp.get("/kohaku/setup/status")
+def kohaku_setup_status():
+    return jsonify(kohaku_setup.status())
+
+
+@bp.post("/kohaku/setup/start")
+def kohaku_setup_start():
+    try:
+        return jsonify(kohaku_setup.start())
+    except kohaku_setup.SetupError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@bp.post("/kohaku/setup/cancel")
+def kohaku_setup_cancel():
+    return jsonify(kohaku_setup.cancel())
+
+
+@bp.get("/kohaku/verify")
+def kohaku_verify():
+    return jsonify(kohaku_setup.verify())
+
+
+@bp.get("/kohaku/profiles")
+def kohaku_profiles():
+    """Low-VRAM trainer VRAM layers: the Train tab applies one to the memory fields; the detected VRAM picks the default."""
+    vram = request.args.get("vram_gb", type=float)
+    return jsonify({"profiles": recommend.KOHAKU_VRAM_PROFILES, "suggested": recommend.kohaku_profile_for(vram)})
+
+
+@bp.post("/kohaku/check")
+def kohaku_check():
+    """Where the weights path points and which files Low-VRAM trainer will use (so a wrong folder shows up before a run)."""
+    body = request.get_json(force=True) or {}
+    from native_backend import kohaku_config            # stdlib-only module of the training backend
+    info = kohaku_config.inspect_weights(str(body.get("weights", "")).strip().strip('"'), str(body.get("variant") or "base"),
+                                         str(body.get("transformer", "")).strip(), str(body.get("text_encoder", "")).strip(),
+                                         str(body.get("vae", "")).strip())
+    return jsonify(info)
 
 
 @bp.get("/training_presets/<model_type>/<name>")
@@ -424,9 +581,12 @@ def advisor():
         analysis_result = analysis.analyze_dataset(folder, deep=True)
         health = analysis.health_score(analysis_result)
         vram = body.get("vram_gb")
+        try:
+            vram_gb = None if vram in (None, "") else float(vram)
+        except (TypeError, ValueError):
+            return jsonify({"error": "VRAM must be a number."}), 400
         report = recommend.advisor_report(
-            analysis_result, health, model_type, project_type,
-            None if vram in (None, "") else float(vram))
+            analysis_result, health, model_type, project_type, vram_gb)
         return jsonify({
             "report": report,
             "analysis": {
@@ -467,7 +627,11 @@ def calculate_steps():
 
 @bp.get("/history")
 def training_history():
-    return jsonify({"runs": history.list_runs(int(request.args.get("limit", 100) or 100))})
+    try:
+        limit = int(request.args.get("limit", 100) or 100)
+    except ValueError:
+        limit = 100
+    return jsonify({"runs": history.list_runs(limit)})
 
 
 @bp.post("/history")
@@ -504,6 +668,60 @@ def package_inspect():
         return jsonify({"error": str(exc)}), 400
 
 
+@bp.get("/slim/analyze")
+def slim_analyze():
+    try:
+        path = packager.clean_path(request.args.get("path", ""))
+        if not path:
+            return jsonify({"error": "Pick a LoRA file first."}), 400
+        return jsonify(lora_slim.analyze(path, request.args.get("dtype", "keep")))
+    except (lora_slim.SlimError, OSError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@bp.post("/slim")
+def slim_lora():
+    body = request.get_json(force=True) or {}
+    path = packager.clean_path(str(body.get("path", "")))
+    if not path:
+        return jsonify({"error": "Pick a LoRA file first."}), 400
+    try:
+        return jsonify(lora_slim.slim(
+            path, str(body.get("mode", "energy")), float(body.get("value") or 99),
+            str(body.get("dtype", "keep")), packager.clean_path(str(body.get("out_path", "")))))
+    except (lora_slim.SlimError, OSError, ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+# --- LoRA metadata -----------------------------------------------------------
+
+@bp.get("/metadata")
+def lora_metadata():
+    path = packager.clean_path(request.args.get("path", ""))
+    if not path:
+        return jsonify({"error": "Pick a .safetensors file first."}), 400
+    try:
+        return jsonify(lora_slim.metadata(path))
+    except (lora_slim.SlimError, OSError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@bp.post("/metadata/strip")
+def lora_strip_metadata():
+    body = request.get_json(force=True) or {}
+    path = packager.clean_path(str(body.get("path", "")))
+    if not path:
+        return jsonify({"error": "Pick a .safetensors file first."}), 400
+    raw_keep = body.get("keep")
+    keep = [str(k) for k in raw_keep] if isinstance(raw_keep, list) else None
+    try:
+        return jsonify(lora_slim.strip_metadata(
+            path, keep, packager.clean_path(str(body.get("out_path", ""))),
+            bool(body.get("dry_run", False))))
+    except (lora_slim.SlimError, OSError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
 @bp.post("/package")
 def package_lora():
     body = request.get_json(force=True) or {}
@@ -514,6 +732,8 @@ def package_lora():
     if not output_dir:
         return jsonify({"error": "Output folder is required."}), 400
     training_config = body.get("training_config") or {}
+    if not isinstance(training_config, dict):
+        return jsonify({"error": "training_config must be an object."}), 400
     if not training_config.get("project_type") and body.get("project_type"):
         training_config["project_type"] = body.get("project_type")
     if not training_config.get("model_type") and body.get("model_type"):

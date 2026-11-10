@@ -48,7 +48,15 @@ from pathlib import Path
 
 from . import dataset as ds
 
-_SD_SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "training_backend" / "sd_scripts"
+_ROOT = Path(__file__).resolve().parent.parent
+_SD_SCRIPTS_DIR = _ROOT / "training_backend" / "sd_scripts"
+# MOSS-Image runs on its own vendored sd-scripts fork (RichyRich515/sd-scripts, branch moss-image) with its
+# own virtual environment: it needs torch 2.14 / CUDA 13, which the Anima/SDXL engine does not pin.
+_MOSS_SD_SCRIPTS_DIR = _ROOT / "moss_backend" / "sd_scripts"
+
+
+def _sd_scripts_dir() -> Path:
+    return _MOSS_SD_SCRIPTS_DIR if _KIND == "moss" else _SD_SCRIPTS_DIR
 
 
 class TrainerError(RuntimeError):
@@ -65,13 +73,18 @@ def _get(d: dict, *path, default=None):
 
 
 def _ensure_sd_scripts_importable() -> None:
-    if not _SD_SCRIPTS_DIR.is_dir():
+    d = _sd_scripts_dir()
+    if not d.is_dir():
+        if _KIND == "moss":
+            raise TrainerError(
+                f"MOSS-Image training needs the bundled moss_backend/sd_scripts folder, not found at {d}. "
+                "Redownload Anima Studio, then set up the MOSS environment in the Backend tab.")
         raise TrainerError(
-            f"Anima training needs the bundled backend's sd_scripts folder, not found at {_SD_SCRIPTS_DIR}. "
+            f"Anima training needs the bundled backend's sd_scripts folder, not found at {d}. "
             "Run \"Set up backend\" in the Train tab first."
         )
-    if str(_SD_SCRIPTS_DIR) not in sys.path:
-        sys.path.insert(0, str(_SD_SCRIPTS_DIR))
+    if str(d) not in sys.path:
+        sys.path.insert(0, str(d))
 
 
 _SUBSET_KEYS = (
@@ -82,6 +95,8 @@ _SUBSET_KEYS = (
     "caption_dropout_rate", "caption_tag_dropout_rate", "protected_tags_file", "is_reg", "is_val", "alpha_mask",
     "class_tokens", "cache_info",
 )
+_MOSS_UNSUPPORTED_SUBSET_KEYS = {"shuffle_caption", "caption_tag_dropout_rate", "token_warmup_min",
+                                 "token_warmup_step", "enable_wildcard"}
 _DATASET_KEYS = {"validation_seed", "validation_split", "network_multiplier", "resize_interpolation",
                  "skip_image_resolution", "resolution_jitter_resolutions", "resolution_jitter_batch_sizes",
                  "resolution_jitter_weights", "multires_training"}
@@ -139,6 +154,12 @@ def write_dataset_toml(dataset: dict, resolution, dest_path: Path, batch_size: i
             if _CACHE_LATENTS_REQUESTED and key in ("random_crop", "color_aug", "gamma_aug", "gamma_aug_range", "gamma_aug_rate"):
                 continue
             if _MASKED_LOSS_REQUESTED and key == "random_crop":
+                continue
+            # MOSS-Image caches its text-encoder outputs, so anything that changes the caption at
+            # train time is impossible (the trainer would refuse to start).
+            if _KIND == "moss" and key in _MOSS_UNSUPPORTED_SUBSET_KEYS:
+                if s.get(key):
+                    print(f"[anima-studio] MOSS-Image: '{key}' is ignored (text-encoder outputs are cached).", flush=True)
                 continue
             val = s.get(key)
             if val is None or val == "" or val is False:
@@ -257,6 +278,14 @@ def _apply_ui_overrides(ns, args: dict, dataset_item_count: int, dataset_batch_s
             ns.vae = general["vae"]
         ns.network_module = "networks.lora"
         anima_args = {}          # Anima-only options must not leak into an SDXL run
+    elif _KIND == "moss":
+        moss = args.get("moss_args", {}) or {}
+        anima_args = {}          # Anima-only options must not leak into a MOSS run
+        ns.pretrained_model_name_or_path = moss.get("pretrained_model_name_or_path")
+        if not ns.pretrained_model_name_or_path:
+            raise TrainerError("MOSS-Image training needs the MOSS-Image model folder (moss_args.pretrained_model_name_or_path).")
+        _apply_moss_args(ns, moss)
+        ns.network_module = "networks.lora_moss"
     else:
         ns.pretrained_model_name_or_path = anima_args.get("pretrained_model_name_or_path")
         ns.qwen3 = anima_args.get("qwen3")
@@ -276,7 +305,11 @@ def _apply_ui_overrides(ns, args: dict, dataset_item_count: int, dataset_batch_s
         def _fmt(v):
             return str(v).lower() if isinstance(v, bool) else str(v)
         use = dict(net_kwargs)
-        if "algo" in use:                       # a LyCORIS algorithm was chosen in the UI
+        if _KIND == "moss" and "algo" in use:
+            print("[anima-studio] MOSS-Image trains a standard LoRA (networks.lora_moss); the LyCORIS options "
+                  "are ignored: " + ", ".join(sorted(k for k in use if k in _LYCORIS_ONLY or k == "algo")), flush=True)
+            use = {k: v for k, v in use.items() if k not in _LYCORIS_ONLY and k != "algo"}
+        elif "algo" in use:                       # a LyCORIS algorithm was chosen in the UI
             try:
                 _ensure_sd_scripts_importable()
                 import importlib
@@ -403,10 +436,35 @@ def _apply_ui_overrides(ns, args: dict, dataset_item_count: int, dataset_batch_s
     if saving.get("output_name"):
         ns.output_name = saving["output_name"]
     else:
-        ns.output_name = "sdxl_lora" if _KIND == "sdxl" else "anima_lora"
+        ns.output_name = {"sdxl": "sdxl_lora", "moss": "moss_lora"}.get(_KIND, "anima_lora")
     if saving.get("save_every_n_steps"):
         ns.save_every_n_epochs = None
         ns.save_every_n_steps = int(saving["save_every_n_steps"])
+
+
+def _apply_moss_args(ns, moss: dict) -> None:
+    """moss_args -> the fork's parser fields (library/moss_train_utils.add_moss_training_arguments and
+    train_util.add_dit_training_arguments). Only what the UI sends is overridden."""
+    str_keys = ("moss_text_encoder", "moss_tokenizer", "vae", "moss_attn_backend", "moss_compile", "moss_int8_bwd",
+                "moss_lora_save_format", "timestep_sampling", "moss_sample_uncond_skip_layers", "moss_te_mode")
+    for k in str_keys:
+        if moss.get(k) not in (None, ""):
+            setattr(ns, k, str(moss[k]))
+    for k in ("moss_max_token_length", "blocks_to_swap", "moss_unchecked_blocks", "moss_nonfinite_patience"):
+        if moss.get(k) is not None and moss.get(k) != "":
+            setattr(ns, k, int(moss[k]))
+    for k in ("discrete_flow_shift", "sigmoid_scale", "moss_ts_mu", "moss_ts_s", "moss_ts_cutoff",
+              "moss_ts_uniform_mix", "moss_te_gpu_gb", "moss_te_cpu_gb"):
+        if moss.get(k) is not None and moss.get(k) != "":
+            setattr(ns, k, float(moss[k]))
+    for k in ("moss_int8", "moss_fp32_modulation", "moss_vae_sample_posterior"):
+        if moss.get(k):
+            setattr(ns, k, True)
+    if getattr(ns, "moss_int8", False) and (getattr(ns, "blocks_to_swap", 0) or 0) > 0:
+        # the trainer raises on this combination; block swap is what the user asked for on a small card
+        print("[anima-studio] MOSS-Image: INT8 base cannot be combined with Blocks to swap - using block swap, INT8 off.",
+              flush=True)
+        ns.moss_int8 = False
 
 
 _NEVER_FORWARD = {"dataset_config", "output_dir", "config_file", "output_config", "warmup_ratio",
@@ -465,7 +523,7 @@ def _forward_remaining_args(ns, defaults, args: dict) -> None:
 
 
 _LAST_DEFAULTS = None
-_KIND = "anima"          # "anima" or "sdxl": which vendored sd-scripts trainer this run uses
+_KIND = "anima"          # "anima", "sdxl" or "moss": which vendored sd-scripts trainer this run uses
 _SUBSET_CAPTION_AUG = False
 _CACHE_LATENTS_REQUESTED = False
 _MASKED_LOSS_REQUESTED = False
@@ -517,7 +575,7 @@ def _log_environment(ns) -> None:
     changed = []
     if d is not None:
         for k, v in sorted(vars(ns).items()):
-            if k.startswith("_") or k in ("pretrained_model_name_or_path", "qwen3", "vae", "output_dir", "dataset_config"):
+            if k.startswith("_") or k in ("pretrained_model_name_or_path", "qwen3", "vae", "output_dir", "dataset_config", "moss_text_encoder"):
                 continue
             if v != getattr(d, k, None):
                 changed.append(f"{k}={v}")
@@ -530,6 +588,9 @@ def _trainer_module():
     if _KIND == "sdxl":
         import sdxl_train_network
         return sdxl_train_network
+    if _KIND == "moss":
+        import moss_train_network
+        return moss_train_network
     import anima_train_network
     return anima_train_network
 
@@ -559,6 +620,10 @@ def build_args(args: dict, dataset_item_count: int, dataset_batch_size: int,
         ns.logging_dir = str(Path(output_dir) / "logs")
         print(f"[anima-studio] no log folder set - TensorBoard logs go to {ns.logging_dir}", flush=True)
 
+    if _KIND == "moss":
+        ns._anima_model = True  # rectified flow: bypasses the CFM guard in train_network.py (as the fork's __main__ does)
+        if (getattr(ns, "network_module", "") or "") in ("networks.lora", "networks.lora_anima"):
+            ns.network_module = "networks.lora_moss"
     if _KIND == "anima":
         if getattr(ns, "attn_mode", None) == "sdpa":
             ns.attn_mode = "torch"  # backward-compat fixup, matches the real script's __main__ block
@@ -569,6 +634,10 @@ def build_args(args: dict, dataset_item_count: int, dataset_batch_size: int,
 
 def run(args: dict, dataset: dict, on_progress, should_stop) -> None:
     run_kind("anima", args, dataset, on_progress, should_stop)
+
+
+def run_moss(args: dict, dataset: dict, on_progress, should_stop) -> None:
+    run_kind("moss", args, dataset, on_progress, should_stop)
 
 
 def run_kind(kind: str, args: dict, dataset: dict, on_progress, should_stop) -> None:
@@ -619,7 +688,8 @@ def run_kind(kind: str, args: dict, dataset: dict, on_progress, should_stop) -> 
         # (Anima Studio's Monitor tab already reads sample images and
         # checkpoints from output_dir directly for the vendored-backend
         # path too, so this matches that, not a regression from it.)
-        trainer = mod.SdxlNetworkTrainer() if kind == "sdxl" else mod.AnimaNetworkTrainer()
+        trainer = {"sdxl": lambda: mod.SdxlNetworkTrainer(), "moss": lambda: mod.MossNetworkTrainer()}.get(
+            kind, lambda: mod.AnimaNetworkTrainer())()
         trainer.train(ns)
 
         on_progress(step=ns.max_train_steps, total_steps=ns.max_train_steps, loss=None)

@@ -18,7 +18,7 @@
 <div class="app-shell">
 
   <!-- ===================== Sidebar ===================== -->
-  <aside class="sidebar">
+  <header class="topnav">
     <div class="brand">
       <div class="brand-mark">
         <svg width="28" height="28" viewBox="0 0 256 256" aria-hidden="true">
@@ -30,72 +30,52 @@
         </svg>
         <span class="brand-name">Anima Studio</span>
       </div>
-      <div class="brand-sub">DiT LoRA Workshop</div>
     </div>
 
     <nav class="nav">
       <button class="nav-item" data-view="projects">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 5.5A1.5 1.5 0 0 1 4 4h3l1.5 1.5H12A1.5 1.5 0 0 1 13.5 7v5A1.5 1.5 0 0 1 12 13.5H4A1.5 1.5 0 0 1 2.5 12v-6.5Z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 7.5v4M4 9.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        Projects
+        <span class="nav-label">Projects</span>
         <span class="nav-step">01</span>
       </button>
       <button class="nav-item" data-view="explore">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        Booru Explorer
+        <span class="nav-label">Booru Explorer</span>
         <span class="nav-step">02</span>
       </button>
       <button class="nav-item" data-view="collect">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.2 1.6h4.8A1.5 1.5 0 0 1 14 6.1v6.4A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-8Z" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
-        Collect
+        <span class="nav-label">Collect</span>
         <span class="nav-step">03</span>
       </button>
       <button class="nav-item" data-view="edit">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.3 2.3a1.2 1.2 0 0 1 1.7 0l0.7 0.7a1.2 1.2 0 0 1 0 1.7L5.4 13H2.5v-2.9l8.8-7.8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.7 4l2.3 2.3" stroke="currentColor" stroke-width="1.3"/></svg>
-        Edit
+        <span class="nav-label">Edit</span>
         <span class="nav-step">04</span>
       </button>
       <button class="nav-item" data-view="caption">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6l-2.6 2.1a.4.4 0 0 1-.65-.31V11.5h-.25a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5 6.5h6M5 8.7h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
-        Caption
+        <span class="nav-label">Caption</span>
         <span class="nav-step">05</span>
       </button>
       <button class="nav-item" data-view="train">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.3" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.9M8 12.3v1.9M14.2 8h-1.9M3.7 8H1.8M12.5 3.5l-1.3 1.3M4.8 11.2l-1.3 1.3M12.5 12.5l-1.3-1.3M4.8 4.8 3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        Train
+        <span class="nav-label">Train</span>
         <span class="nav-step">06</span>
       </button>
       <button class="nav-item" data-view="monitor">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1.5 12.5h13M2.5 12v-3.2l3-3.5 2.5 2.4 4.5-5.2v9.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Monitor
+        <span class="nav-label">Monitor</span>
         <span class="nav-step">07</span>
       </button>
       <button class="nav-item" data-view="backend">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="4.2" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="9.3" width="12" height="4.2" rx="1" stroke="currentColor" stroke-width="1.3"/><circle cx="4.6" cy="4.6" r=".8" fill="currentColor"/><circle cx="4.6" cy="11.4" r=".8" fill="currentColor"/></svg>
-        Backend
+        <span class="nav-label">Backend</span>
         <span class="nav-step be-nav-dot" id="be-nav-dot"></span>
       </button>
     </nav>
 
-    <div class="sidebar-footer">
-      <button class="btn small ghost" id="appsettings-btn" style="justify-content:flex-start" title="Save and restore the app's settings (not training parameters)">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h8l2 2v9H3v-11Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.5 2.5v3.5h4V2.5M5.5 13v-4h5v4" stroke="currentColor" stroke-width="1.2"/></svg>
-        App settings
-      </button>
-      <button class="btn small ghost" id="appearance-btn" style="justify-content:flex-start">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/><circle cx="10" cy="6" r="1" fill="currentColor"/><circle cx="10.5" cy="9.5" r="1" fill="currentColor"/><circle cx="6.5" cy="10" r="1" fill="currentColor"/></svg>
-        Appearance
-      </button>
-      <div class="conn-status" id="backend-status">
-        <span class="conn-dot" id="backend-dot"></span>
-        <span id="backend-status-text">Backend not checked</span>
-      </div>
-    </div>
-  </aside>
-
-  <!-- ===================== Main ===================== -->
-  <div class="main">
-    <div class="topbar">
-      <div class="topbar-title" id="topbar-title">Collect<span class="dim">— gather images from booru sites or the web</span></div>
+    <span class="spacer"></span>
       <div class="topbar-actions" id="topbar-actions">
         <!-- Current project. Every tab's folders derive from this, so it
              lives in the topbar where it's visible from every view rather
@@ -109,7 +89,23 @@
         </div>
         <span class="topbar-divider" aria-hidden="true"></span>
       </div>
+    <div class="topnav-tools">
+      <button class="btn small ghost icon-btn" id="appsettings-btn" title="Save and restore the app's settings (not training parameters)">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h8l2 2v9H3v-11Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.5 2.5v3.5h4V2.5M5.5 13v-4h5v4" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <button class="btn small ghost icon-btn" id="appearance-btn" title="Appearance">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/><circle cx="10" cy="6" r="1" fill="currentColor"/><circle cx="10.5" cy="9.5" r="1" fill="currentColor"/><circle cx="6.5" cy="10" r="1" fill="currentColor"/></svg>
+      </button>
+      <div class="conn-status" id="backend-status">
+        <span class="conn-dot" id="backend-dot"></span>
+        <span id="backend-status-text">Backend not checked</span>
+      </div>
     </div>
+  </header>
+
+  <!-- ===================== Main ===================== -->
+  <div class="main">
+    <div class="topbar-title" id="topbar-title" hidden></div>
 
     <!-- Shows the active project across every tab: name, type, and the
          counts that tell you whether it's actually ready to train. -->
@@ -163,6 +159,7 @@
               <select id="new-project-model">
                 <option value="anima">Anima</option>
                 <option value="sdxl">SDXL</option>
+                <option value="moss">MOSS-Image</option>
               </select>
             </div>
             <div class="field span-2">
@@ -572,6 +569,36 @@
               <pre class="log-tail" id="resize-errors" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
             </div>
 
+            <div class="card" id="ai-batch-card">
+              <div class="card-title"><span class="bar"></span> AI batch (whole folder)</div>
+              <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+                Runs one AI tool on every image of this folder (including subfolders), one after another: remove the background,
+                upscale, restore faces, or erase the same painted area from every picture (a watermark in the same spot - paint it
+                once in the editor, then come back here). Models and settings come from the editor's <b>AI tools</b> panel. The
+                original is backed up first (or a copy is written). Needs the AI edit environment from the Backend tab.
+              </p>
+              <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
+                <select id="ai-batch-op" style="width:auto">
+                  <option value="removebg">Remove background</option>
+                  <option value="realesrgan">Upscale (Real-ESRGAN)</option>
+                  <option value="gfpgan">Restore faces (GFPGAN)</option>
+                  <option value="restoreformer">Restore faces (RestoreFormer)</option>
+                  <option value="inpaint">Erase the painted mask from every image</option>
+                </select>
+                <label class="checkbox-row"><input type="checkbox" id="ai-batch-copy" checked> Save as copies</label>
+                <button class="btn primary" id="ai-batch-start">Start</button>
+                <button class="btn danger" id="ai-batch-cancel" style="display:none">Cancel</button>
+              </div>
+              <div class="status-strip" style="margin-top:10px">
+                <span class="conn-dot" id="ai-batch-dot"></span>
+                <span class="label" id="ai-batch-text">Not started</span>
+              </div>
+              <div class="progress-track" id="ai-batch-track" style="display:none;margin-top:8px">
+                <div class="progress-fill" id="ai-batch-fill" style="width:0%"></div>
+              </div>
+              <pre class="log-tail" id="ai-batch-errors" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+            </div>
+
             <div class="card">
               <div class="card-title"><span class="bar"></span> Images to clean <span class="count" id="edit-grid-count"></span></div>
               <input type="text" id="edit-search" placeholder="Search by filename…" style="margin-bottom:12px">
@@ -631,7 +658,12 @@
         <div id="caption-subview-gallery">
         <div class="caption-layout">
           <div>
-            <div class="card compact">
+            <div class="pill-group" id="caption-tool-toggle" style="margin-bottom:16px">
+              <button type="button" class="active" data-tool="booru">Booru tagging</button>
+              <button type="button" data-tool="nl">Natural-language captions</button>
+            </div>
+
+            <div class="card compact" id="caption-booru-card">
               <div class="card-title"><span class="bar"></span> Auto-tag with WD14</div>
               <div class="field-grid cols-3 tight">
                 <div class="field">
@@ -660,6 +692,12 @@
                   <button class="btn primary" id="autotag-btn" disabled>Run auto-tagger</button>
                   <span class="spinner" id="autotag-spinner" style="display:none;margin-left:8px"></span>
                 </div>
+                <div class="field span-full">
+                  <label class="checkbox-row" style="margin:0">
+                    <input type="checkbox" id="tagger-colour-guard" checked>
+                    <span>Colour guard <span class="hint-dot" title="Keeps only the most confident eye colour and hair colour per image (unless heterochromia / multicoloured hair is tagged) and drops low-confidence coloured-skin tags such as blue skin. Fixes taggers that over-guess colours.">?</span></span>
+                  </label>
+                </div>
               </div>
               <div id="tagger-status-row" class="row" style="margin-top:10px">
                 <span class="badge rating-questionable" id="tagger-status-badge">not downloaded</span>
@@ -669,23 +707,134 @@
                 <span id="tagger-progress-text" style="font-size:11.5px;color:var(--text-faint);margin-left:8px"></span>
               </div>
               <div id="tagger-deps-row" style="display:none;margin-top:8px">
-                <div class="notice-banner" style="margin-bottom:8px">
+                <div class="notice-banner" style="margin-bottom:0">
                   This model ships as a timm/safetensors checkpoint instead of ONNX, so it also
                   needs <code>torch</code>, <code>timm</code>, <code>safetensors</code> and (for PixAI) <code>transformers</code>/<code>torchvision</code>
                   installed - every other tagger model here works without these.
+                  <button class="btn small ghost" id="tagger-deps-goto" type="button" style="margin-left:6px">Install in the Backend tab</button>
                 </div>
-                <div class="row">
-                  <button class="btn small primary" id="tagger-deps-install-btn">Install dependencies</button>
-                  <span class="spinner" id="tagger-deps-spinner" style="display:none;margin-left:8px"></span>
-                </div>
-                <pre class="log-tail" id="tagger-deps-log" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
               </div>
               <p class="card-hint" style="margin-top:8px">Downloads once from Hugging Face (a few hundred MB), then tags fully offline from there on.</p>
+            </div>
+
+            <div class="card compact" id="caption-nl-card" style="display:none;margin-top:0">
+              <div class="card-title"><span class="bar"></span> Natural-language captions</div>
+              <p class="card-hint" style="margin-top:0">
+                Anima's text encoder is a language model, so a caption written as a sentence
+                ("a girl with long blue hair in twintails, wearing a school uniform, smiling in a classroom")
+                gives it more to work with than a tag list does. Rephrase tags you already have - instant and
+                offline - or let a local vision-language model describe each picture itself.
+              </p>
+
+              <div class="field-grid cols-2 tight">
+                <div class="field">
+                  <label for="nl-source">Where the caption comes from</label>
+                  <select id="nl-source">
+                    <option value="tags">Rephrase the tags already there</option>
+                    <option value="vlm">A vision-language model (looks at the image)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="nl-mode">Images <span class="hint-dot" title="Rephrasing uses the tags already on disk, so it always looks at every image; the vision-language model can also fill the ones without captions">?</span></label>
+                  <select id="nl-mode">
+                    <option value="missing_only">Images without captions</option>
+                    <option value="all">All images (rewrite)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="nl-write">How to write it</label>
+                  <select id="nl-write">
+                    <option value="replace">Replace the caption with the sentence</option>
+                    <option value="keep">Keep the tags, then add the sentence</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="nl-model">Caption model</label>
+                  <select id="nl-model"></select>
+                </div>
+                <div class="field" id="nl-vram-field" style="display:none">
+                  <label for="nl-vram">VRAM profile <span class="hint-dot" title="Plan the model load for this much memory. Auto reads your card. Low profiles use 4-bit weights and smaller image sizes so even an 8 GB card can caption.">?</span></label>
+                  <select id="nl-vram">
+                    <option value="auto">Auto (detect my GPU)</option>
+                    <option value="8">Low - 8 GB</option>
+                    <option value="10">10 GB</option>
+                    <option value="12">Medium - 12 GB</option>
+                    <option value="16">High - 16 GB</option>
+                    <option value="24">Max - 24 GB+</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="nl-trigger">Trigger word <span class="hint-dot" title="Put at the start of every caption, so the LoRA learns to associate it with this subject">?</span></label>
+                  <input type="text" id="nl-trigger" placeholder="optional, e.g. mychar">
+                </div>
+              </div>
+
+              <div class="row" id="nl-vlm-row" style="display:none;margin-top:10px">
+                <button class="btn small" id="nl-download-btn" type="button">Download</button>
+                <span class="label" id="nl-model-note"></span>
+              </div>
+              <div class="progress-track" id="nl-dl-track" style="display:none;margin-top:8px">
+                <div class="progress-fill" id="nl-dl-fill" style="width:0%"></div>
+              </div>
+              <div class="label" id="nl-dl-text" style="margin-top:6px"></div>
+
+              <div id="nl-deps-row" style="display:none;margin-top:10px">
+                <div class="row">
+                  <span class="label" id="nl-deps-text"></span>
+                  <button class="btn small ghost" id="nl-deps-goto" type="button">Install in the Backend tab</button>
+                  <button class="btn small primary" id="nl-env-setup" type="button" style="display:none">Set up the Qwen3.5 environment</button>
+                </div>
+                <pre id="nl-env-log" class="mono" style="display:none;max-height:140px;overflow:auto;margin:8px 0 0;font-size:11px;white-space:pre-wrap"></pre>
+              </div>
+
+              <label class="checkbox-row" style="margin-top:10px">
+                <input type="checkbox" id="nl-drop-quality" checked>
+                Leave out library tags ("best quality", "absurdres", "signature") when rephrasing
+              </label>
+
+              <div class="row" style="margin-top:12px">
+                <button class="btn primary" id="nl-run-btn" type="button">Caption images</button>
+                <button class="btn" id="nl-preview-btn" type="button">Preview the wording</button>
+                <button class="btn" id="nl-once-btn" type="button" style="display:none">Try one image</button>
+                <button class="btn ghost" id="nl-cancel-btn" type="button" style="display:none">Stop</button>
+                <span class="spinner" id="nl-spinner" style="display:none"></span>
+              </div>
+              <div class="progress-track" id="nl-run-track" style="display:none;margin-top:10px">
+                <div class="progress-fill" id="nl-run-fill" style="width:0%"></div>
+              </div>
+              <div class="label" id="nl-run-text" style="margin-top:6px"></div>
+
+              <div id="nl-preview-box" style="display:none;margin-top:10px">
+                <div class="nl-preview-line"><b>Before</b><span id="nl-preview-before"></span></div>
+                <div class="nl-preview-line"><span id="nl-preview-after"></span></div>
+              </div>
+              <p class="card-hint" style="margin-top:8px">
+                Rephrasing either replaces each caption or keeps its tags and appends the sentence - either
+                way it lands in the same undo history as the other caption tools (Caption tools &rarr; Undo).
+                Tag-based tools work on comma-separated captions, so once a folder is written as sentences
+                they are better left alone.
+              </p>
             </div>
 
             <div class="card compact">
               <div class="card-title"><span class="bar"></span> Images to caption <span class="count" id="caption-grid-count"></span></div>
               <input type="text" id="caption-search" placeholder="Search by filename or tag…" style="margin-bottom:10px">
+              <div class="tag-filter-banner" id="caption-tag-filter">
+                <span>Showing only images tagged <code id="caption-tag-filter-name"></code></span>
+                <button class="btn small ghost" id="caption-tag-filter-clear" type="button">Show all ✕</button>
+              </div>
+              <div class="caption-selbar" id="caption-selbar">
+                <span class="sel-count" id="sel-count">0 selected</span>
+                <button class="btn small ghost" id="sel-all" type="button">Select all shown</button>
+                <button class="btn small ghost" id="sel-clear" type="button">Clear</button>
+                <span class="sep"></span>
+                <input type="text" id="sel-add-tag" placeholder="add tag to selected">
+                <button class="btn small" id="sel-add-btn" type="button">Add</button>
+                <input type="text" id="sel-remove-tag" placeholder="remove tag from selected">
+                <button class="btn small" id="sel-remove-btn" type="button">Remove</button>
+                <span class="sep"></span>
+                <button class="btn small" id="sel-paste-btn" type="button" disabled>Paste copied tags</button>
+              </div>
               <div class="caption-grid" id="caption-grid"></div>
             </div>
           </div>
@@ -694,6 +843,7 @@
             <div class="card compact">
               <div class="card-title"><span class="bar"></span> Bulk edit</div>
               <div class="stack">
+                <button class="btn small undo-btn caption-undo-btn" type="button" title="Undo the last bulk change to captions"></button>
                 <div class="field">
                   <label for="bulk-add-tag">Add tag to all</label>
                   <div class="field-row">
@@ -724,6 +874,15 @@
                   <button class="btn small" id="bulk-replace-btn" style="margin-top:6px;align-self:flex-start">Apply</button>
                 </div>
                 <button class="btn small" id="bulk-underscores-btn">Convert underscores → spaces</button>
+                <div class="field">
+                  <label for="sort-keep">Auto-sort tags <span class="hint-dot" title="Reorders every caption: first tags stay put, then subject, hair, eyes, body, clothing, expression, pose, other, setting, meta. Order inside each group is kept.">?</span></label>
+                  <div class="field-row">
+                    <input type="number" id="sort-keep" value="1" min="0" max="20" style="width:70px;flex:none" title="How many tags at the start stay exactly where they are (usually the trigger word)">
+                    <input type="text" id="sort-pinned" placeholder="pin first (optional)" title="Extra tags to pin to the front, comma separated (optional)">
+                  </div>
+                  <button class="btn small primary" id="sort-btn" type="button" style="align-self:flex-start">Sort tags</button>
+                  <div class="card-hint" style="margin:0">Left box = how many leading tags stay in place.</div>
+                </div>
               </div>
             </div>
 
@@ -755,17 +914,75 @@
         </div>
 
         <div id="caption-subview-rules" style="display:none">
-          <div class="card compact">
-            <div class="card-title"><span class="bar"></span> Tag variation detection</div>
-            <p class="card-hint" style="margin-top:0">
-              Finds tags that may represent the same concept - e.g. <code>white_hair</code> vs
-              <code>silver_hair</code>. Tick the groups you want to standardize.
-            </p>
-            <div class="row" style="margin-top:8px;gap:6px">
-              <button class="btn" id="variations-scan-btn">Scan for variations</button>
-              <button class="btn primary" id="variations-apply-btn" disabled>Standardize selected</button>
+          <div class="card compact review" id="variations-card">
+            <div class="review-title">
+              <div>
+                <div class="card-title" style="margin:0"><span class="bar"></span> Tag variations</div>
+                <p class="review-sub">Different tags for the same thing, like <code>white hair</code> and <code>silver hair</code>. Pick which spelling to keep and every other one is renamed to it.</p>
+              </div>
+              <button class="btn small undo-btn caption-undo-btn" type="button"></button>
             </div>
-            <div id="variations-list" style="margin-top:10px"></div>
+            <div class="review-bar">
+              <button class="btn" id="variations-scan-btn" type="button">Scan</button>
+              <span class="review-summary" id="variations-summary"></span>
+              <span class="spacer"></span>
+              <button class="btn small ghost" id="variations-none" type="button" style="display:none">None</button>
+              <button class="btn small ghost" id="variations-all" type="button" style="display:none">All</button>
+              <button class="btn primary" id="variations-apply-btn" type="button" disabled>Merge selected</button>
+            </div>
+            <div class="review-list" id="variations-list"></div>
+          </div>
+
+          <div class="card compact review" id="prune-card">
+            <div class="review-title">
+              <div>
+                <div class="card-title" style="margin:0"><span class="bar"></span> Redundant tags</div>
+                <p class="review-sub">A general tag sitting next to a more specific one, like <code>shirt</code> beside <code>white shirt</code>. Ticked tags are removed only from the captions that also have the specific one.</p>
+              </div>
+              <button class="btn small undo-btn caption-undo-btn" type="button"></button>
+            </div>
+            <div class="review-bar">
+              <button class="btn" id="prune-scan-btn" type="button">Scan</button>
+              <span class="review-summary" id="prune-summary"></span>
+              <span class="spacer"></span>
+              <button class="btn small ghost" id="prune-none" type="button" style="display:none">None</button>
+              <button class="btn small ghost" id="prune-all" type="button" style="display:none">All</button>
+              <button class="btn primary" id="prune-apply-btn" type="button" disabled>Remove selected</button>
+            </div>
+            <div class="review-list" id="prune-list"></div>
+          </div>
+
+          <div class="card compact">
+            <div class="card-title"><span class="bar"></span> Blacklist</div>
+            <p class="card-hint" style="margin-top:0">
+              Tags you never want in a caption (watermark, signature, text…). Saved with the app, so it is the same next time.
+            </p>
+            <textarea id="blacklist-text" rows="3" placeholder="watermark, signature, english text"></textarea>
+            <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
+              <button class="btn small" id="blacklist-common-btn" type="button">Add common junk tags</button>
+              <button class="btn small primary" id="blacklist-save-btn" type="button">Save blacklist</button>
+              <button class="btn small" id="blacklist-apply-btn" type="button">Remove from all captions now</button>
+            </div>
+            <label class="checkbox-row" style="margin-top:8px"><input type="checkbox" id="blacklist-auto" checked><span>Also remove them automatically after every auto-tag run</span></label>
+          </div>
+
+          <div class="card compact">
+            <div class="card-title"><span class="bar"></span> Repeated tags</div>
+            <p class="card-hint" style="margin:0 0 6px">Removes a tag that appears twice in the same caption (<code>smile, smile</code>). This is different from variation detection, which finds <em>different</em> tags that mean the same thing.</p>
+            <button class="btn small" id="dedupe-btn" type="button">Remove repeated tags</button>
+          </div>
+
+          <div class="card compact">
+            <div class="card-title"><span class="bar"></span> Tag relationships</div>
+            <p class="card-hint" style="margin-top:0">
+              See which tags travel together. A tag that is in 95% of your images with the character gets learned as part of her.
+              Leave the box empty to list tags that almost always appear as a pair.
+            </p>
+            <div class="field-row">
+              <input type="text" id="cooc-tag" placeholder="a tag, e.g. red scarf (optional)">
+              <button class="btn small primary" id="cooc-btn" type="button">Show</button>
+            </div>
+            <div id="cooc-list" style="margin-top:10px"></div>
           </div>
 
         </div>
@@ -872,6 +1089,72 @@
         </div>
 
         <div class="card compact">
+          <div class="card-title"><span class="bar"></span> LoRA slimmer</div>
+          <p class="card-hint" style="margin-top:0">Make a smaller copy of a LoRA by cutting its rank, keeping the strongest part of what it learned. The original file is never changed. Works on standard LoRA / LoCon files (not LoHa, LoKr or DoRA).</p>
+          <div class="field-grid cols-3 tight">
+            <div class="field span-2">
+              <label for="slim-path">LoRA file (.safetensors)</label>
+              <div class="path-input">
+                <input type="text" id="slim-path" class="mono" placeholder="C:\models\loras\my_character.safetensors">
+                <button class="btn small" id="slim-browse">Browse</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="slim-dtype">Number format</label>
+              <select id="slim-dtype">
+                <option value="keep">Keep as is</option>
+                <option value="fp16">fp16 (half size of fp32)</option>
+                <option value="bf16">bf16</option>
+                <option value="fp32">fp32</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="slim-analyze-btn">Analyze</button>
+            <span class="spinner" id="slim-spinner" style="display:none"></span>
+            <span id="slim-info" style="font-size:12px;color:var(--text-dim)"></span>
+          </div>
+          <div id="slim-options" style="display:none;margin-top:10px">
+            <div class="table-wrap"><table class="data-table" id="slim-table"></table></div>
+            <p class="card-hint" style="margin:6px 0">"Kept" measures how much of the LoRA's change survives, not how it looks. Generate a few test images with the slim copy before deleting anything.</p>
+            <div class="row">
+              <button class="btn primary" id="slim-run-btn">Slim and save a copy</button>
+              <span id="slim-status" style="font-size:12px;color:var(--text-dim)"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card compact">
+          <div class="card-title"><span class="bar"></span> LoRA metadata</div>
+          <p class="card-hint" style="margin-top:0">A trained LoRA records how it was made: base model, dataset, training settings. Read that block here, then write a copy with some or all of it removed. The weights are copied byte for byte and hash-checked afterwards, and the original file is never changed.</p>
+          <div class="field-grid cols-3 tight">
+            <div class="field span-2">
+              <label for="meta-path">LoRA file (.safetensors)</label>
+              <div class="path-input">
+                <input type="text" id="meta-path" class="mono" placeholder="C:\models\loras\my_character.safetensors">
+                <button class="btn small" id="meta-browse">Browse</button>
+              </div>
+            </div>
+            <div class="field" style="align-self:end">
+              <button class="btn" id="meta-read-btn">Read metadata</button>
+            </div>
+          </div>
+          <div id="meta-panel" style="display:none;margin-top:12px">
+            <div class="section-label" id="meta-summary"></div>
+            <div class="table-wrap"><table class="data-table" id="meta-table"></table></div>
+            <p class="card-hint" style="margin:8px 0">Ticked keys are kept; everything unticked is dropped from the copy. Tick nothing to ship the file with no metadata at all.</p>
+            <div class="row">
+              <button class="btn small" id="meta-all-btn" type="button">Keep all</button>
+              <button class="btn small" id="meta-none-btn" type="button">Keep none</button>
+              <span class="spacer"></span>
+              <button class="btn primary" id="meta-strip-btn" type="button">Save a copy without the unticked keys</button>
+              <span class="spinner" id="meta-spinner" style="display:none"></span>
+            </div>
+            <div id="meta-status" style="font-size:12px;color:var(--text-dim);margin-top:8px"></div>
+          </div>
+        </div>
+
+        <div class="card compact">
           <div class="card-title"><span class="bar"></span> Package LoRA</div>
           <p class="card-hint" style="margin-top:0">Bundle a trained LoRA into a shareable folder (and zip).</p>
           <div class="field-grid cols-3 tight">
@@ -894,6 +1177,7 @@
               <select id="studio-model">
                 <option value="anima">Anima</option>
                 <option value="sdxl">SDXL</option>
+                <option value="moss">MOSS-Image</option>
               </select>
             </div>
             <div class="field span-2">
@@ -1013,6 +1297,133 @@
         </div>
 
         <div class="card be-card">
+          <div class="card-title"><span class="bar"></span> Feature dependencies</div>
+          <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            A few features need extra Python packages beyond the backend's own stack - the
+            timm-based tagger models, the vision-language captioner and the AI upscaler.
+            Install them here once; the feature tabs only show a short note when something
+            is missing. Each one goes into whichever environment runs it (Anima Studio's own,
+            or the training backend's venv).
+          </p>
+
+          <div class="row" style="gap:8px;align-items:flex-start">
+            <div style="flex:1;min-width:0">
+              <b style="font-size:12.5px">Auto-tagger (timm checkpoints)</b>
+              <div class="label" id="fdeps-tagger-text" style="margin-top:2px">Checking…</div>
+            </div>
+            <button class="btn small primary" id="fdeps-tagger-btn" style="display:none">Install</button>
+            <span class="spinner" id="fdeps-tagger-spinner" style="display:none"></span>
+          </div>
+          <pre class="log-tail" id="fdeps-tagger-log" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+
+          <div class="row" style="gap:8px;align-items:flex-start;margin-top:14px">
+            <div style="flex:1;min-width:0">
+              <b style="font-size:12.5px">Vision-language captions</b>
+              <div class="label" id="fdeps-nl-text" style="margin-top:2px">Checking…</div>
+            </div>
+            <button class="btn small primary" id="fdeps-nl-btn" style="display:none">Install</button>
+            <span class="spinner" id="fdeps-nl-spinner" style="display:none"></span>
+          </div>
+          <pre class="log-tail" id="fdeps-nl-log" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+
+          <div class="row" style="gap:8px;align-items:flex-start;margin-top:14px">
+            <div style="flex:1;min-width:0">
+              <b style="font-size:12.5px">AI upscaler (UltraSharp)</b>
+              <div class="label" id="fdeps-upscaler-text" style="margin-top:2px">Checking…</div>
+            </div>
+            <button class="btn small primary" id="fdeps-upscaler-btn" style="display:none">Install</button>
+            <span class="spinner" id="fdeps-upscaler-spinner" style="display:none"></span>
+          </div>
+          <pre class="log-tail" id="fdeps-upscaler-log" style="display:none;max-height:140px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+        </div>
+
+        <div class="card be-card" id="moss-env-card">
+          <div class="card-title"><span class="bar"></span> MOSS-Image trainer</div>
+          <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            MOSS-Image trains on its own bundled engine and its own environment (PyTorch 2.14 + CUDA 13), so it never
+            touches the Anima/SDXL backend above. Set it up once, then pick
+            <b>MOSS-Image</b> on the Train tab and point it at your MOSS-Image model folder. Needs an NVIDIA driver 580+, Git and Python 3.10-3.13 (or uv).
+            An 8 GB card trains the full bf16 model with block swap; plan on 32 GB of system RAM.
+          </p>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn primary" id="moss-setup-btn">Set up MOSS-Image environment</button>
+            <button class="btn ghost" id="moss-setup-cancel" style="display:none">Stop</button>
+            <button class="btn" id="moss-verify-btn">Verify</button>
+            <span class="spinner" id="moss-spinner" style="display:none"></span>
+            <span class="label" id="moss-setup-text" style="margin-left:6px">Checking…</span>
+          </div>
+          <div class="progress-track" id="moss-setup-track" style="display:none;margin-top:8px">
+            <div class="progress-fill" id="moss-setup-fill" style="width:0%"></div>
+          </div>
+          <pre class="log-tail" id="moss-setup-log" style="display:none;max-height:220px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+          <div id="moss-verify-results" style="display:none;margin-top:12px"></div>
+        </div>
+
+        <div class="card be-card" id="kohaku-env-card">
+          <div class="card-title"><span class="bar"></span> Low-VRAM trainer (6 GB+)</div>
+          <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            A second MOSS-Image engine for small cards (bundled in <code>kohaku_backend</code>; credits in THIRD_PARTY_NOTICES.md).
+            It trains straight on the int8 files, streams weights for 6-12 GB cards and has its own kernels. It needs its own
+            environment (PyTorch 2.13-2.14 with the CUDA build for your driver, transformers 5.3+), so it never touches the
+            other engines. Set it up once, then pick <b>MOSS-Image</b> on the Train tab and switch <b>Trainer engine</b> to
+            <b>Low-VRAM trainer</b>. Needs an NVIDIA driver with CUDA 12.6+ and Python 3.10-3.13 (or uv); on Windows install
+            Visual Studio Build Tools (C++ workload) for the fast kernels.
+          </p>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn primary" id="kohaku-setup-btn">Set up Low-VRAM trainer environment</button>
+            <button class="btn ghost" id="kohaku-setup-cancel" style="display:none">Stop</button>
+            <button class="btn" id="kohaku-verify-btn">Verify</button>
+            <span class="spinner" id="kohaku-spinner" style="display:none"></span>
+            <span class="label" id="kohaku-setup-text" style="margin-left:6px">Checking…</span>
+          </div>
+          <div class="progress-track" id="kohaku-setup-track" style="display:none;margin-top:8px">
+            <div class="progress-fill" id="kohaku-setup-fill" style="width:0%"></div>
+          </div>
+          <pre class="log-tail" id="kohaku-setup-log" style="display:none;max-height:220px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+          <div id="kohaku-verify-results" style="display:none;margin-top:12px"></div>
+        </div>
+
+        <div class="card be-card" id="editai-env-card">
+          <div class="card-title"><span class="bar"></span> AI edit tools</div>
+          <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            Powers the AI methods of the Edit tab's Magic eraser: LaMa, Anime LaMa, Manga, ZITS, MAT, FcF, LDM and MI-GAN erasing,
+            Stable Diffusion erase-and-replace and extend, Segment Anything click-to-select, background removal, Real-ESRGAN upscaling
+            and face restoration. It runs in its own environment
+            (<code>edit_backend/venv</code>, Python 3.10/3.11, PyTorch for your GPU) so its older package pins never touch the other
+            engines. Models download the first time you use them. The plain OpenCV erase keeps working without this.
+          </p>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn primary" id="editai-setup-btn">Set up AI edit environment</button>
+            <button class="btn ghost" id="editai-setup-cancel" style="display:none">Stop</button>
+            <button class="btn" id="editai-verify-btn">Verify</button>
+            <span class="spinner" id="editai-spinner" style="display:none"></span>
+            <span class="label" id="editai-setup-text" style="margin-left:6px">Checking…</span>
+          </div>
+          <div class="progress-track" id="editai-setup-track" style="display:none;margin-top:8px">
+            <div class="progress-fill" id="editai-setup-fill" style="width:0%"></div>
+          </div>
+          <pre class="log-tail" id="editai-setup-log" style="display:none;max-height:220px;overflow:auto;font-size:11px;margin-top:8px"></pre>
+          <div id="editai-verify-results" style="display:none;margin-top:12px"></div>
+          <div id="editai-models" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"></div>
+        </div>
+
+        <div class="card be-card">
+          <div class="card-title"><span class="bar"></span> Verify integrity</div>
+          <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            Checks the whole chain a training run needs - the bundled backend files, the environment's
+            interpreter, PyTorch actually seeing your GPU, every required package, the custom schedulers,
+            whether the backend process is running and answering, and free disk space - and says what to do
+            about anything it finds.
+          </p>
+          <div class="row">
+            <button class="btn" id="backend-verify-btn">Verify installation</button>
+            <span class="spinner" id="backend-verify-spinner" style="display:none"></span>
+            <span class="label" id="backend-verify-summary" style="margin-left:8px"></span>
+          </div>
+          <div id="backend-verify-results" style="display:none;margin-top:12px"></div>
+        </div>
+
+        <div class="card be-card">
           <div class="card-title"><span class="bar"></span> Launcher &amp; connection</div>
           <div class="field-grid cols-3">
             <div class="field span-2">
@@ -1070,6 +1481,20 @@
         </div>
       </div>
 
+      <!-- GPU health: live VRAM / utilisation / temperature for the card running
+           the training backend. Reads nvidia-smi directly - no torch needed. -->
+      <div class="gpu-strip gpu-live" id="gpu-strip" hidden>
+        <span class="gpu-dot" id="gpu-strip-dot"></span>
+        <span class="gpu-name" id="gpu-strip-name">GPU</span>
+        <span class="gpu-fact" id="gpu-strip-vram"></span>
+        <span class="gpu-bar" title="VRAM in use"><span class="gpu-bar-fill" id="gpu-strip-bar"></span></span>
+        <span class="gpu-fact" id="gpu-strip-util"></span>
+        <span class="gpu-fact" id="gpu-strip-temp"></span>
+        <span class="gpu-fact" id="gpu-strip-power"></span>
+        <span class="spacer"></span>
+        <span class="gpu-note" id="gpu-strip-note"></span>
+      </div>
+
       <div class="card">
         <div class="field-grid cols-3">
           <div class="field span-2">
@@ -1099,6 +1524,7 @@
           <div class="progress-track">
             <div class="progress-fill" id="monitor-progress-fill" style="width:0%"></div>
           </div>
+          <div class="label" id="monitor-progress-eta" style="margin-top:6px"></div>
         </div>
       </div>
 
@@ -1210,23 +1636,18 @@
     <div class="modal-head">
       <h3>Magic eraser</h3>
       <span class="spacer"></span>
-      <span class="card-hint" style="margin:0">Paint over the area to remove, then click Erase.</span>
+      <span class="card-hint" id="eraser-hint" style="margin:0">Paint over the area to remove, then click Erase.</span>
     </div>
     <div class="eraser-toolbar">
-      <div class="pill-group" id="eraser-tool-toggle">
-        <button type="button" class="active" data-tool="brush">Brush</button>
-        <button type="button" data-tool="rect">Rectangle</button>
-        <button type="button" data-tool="crop">Crop</button>
-      </div>
       <label class="row" id="eraser-brush-size-row" style="gap:6px">
-        <span style="font-size:12px;color:var(--text-dim)">Brush size</span>
-        <input type="range" id="eraser-brush-size" min="6" max="120" value="28">
+        <span style="font-size:12px;color:var(--text-dim)">Brush <kbd class="kbd">[</kbd><kbd class="kbd">]</kbd></span>
+        <input type="range" id="eraser-brush-size" min="2" max="400" value="28" title="Brush size ( [ and ] , or Alt + mouse wheel )"> <span class="label" id="eraser-brush-val" style="min-width:26px;text-align:right">28</span><span class="label">px</span>
       </label>
       <label class="row" id="eraser-method-row" style="gap:6px">
         <span style="font-size:12px;color:var(--text-dim)">Method</span>
-        <select id="eraser-method" style="width:auto">
-          <option value="telea">Telea</option>
-          <option value="ns">Navier-Stokes</option>
+        <select id="eraser-method" style="width:auto;max-width:230px">
+          <option value="cv:telea">Telea (fast, OpenCV)</option>
+          <option value="cv:ns">Navier-Stokes (fast, OpenCV)</option>
         </select>
       </label>
       <label class="row" id="eraser-aspect-row" style="gap:6px;display:none">
@@ -1258,18 +1679,18 @@
       <span class="row" id="eraser-upscaler-status-row" style="gap:6px;display:none">
         <span class="badge rating-questionable" id="eraser-upscaler-badge">not downloaded</span>
         <button class="btn small" id="eraser-upscaler-download-btn">Download</button>
-        <button class="btn small primary" id="eraser-upscaler-deps-btn" style="display:none">Install dependencies</button>
-        <span class="spinner" id="eraser-upscaler-deps-spinner" style="display:none"></span>
+        <button class="btn small ghost" id="eraser-upscaler-deps-goto" style="display:none">Install in the Backend tab</button>
         <div class="progress-track" id="eraser-upscaler-progress-track" style="display:none;width:100px">
           <div class="progress-fill" id="eraser-upscaler-progress-fill" style="width:0%"></div>
         </div>
         <span id="eraser-upscaler-progress-text" style="font-size:11px;color:var(--text-faint)"></span>
       </span>
-      <pre class="log-tail" id="eraser-upscaler-deps-log" style="display:none;max-height:120px;overflow:auto;font-size:11px;width:100%"></pre>
-      <div class="row" style="gap:4px">
-        <button class="btn small icon-only" id="eraser-zoom-out" title="Zoom out">−</button>
-        <button class="btn small ghost" id="eraser-zoom-label" title="Reset to fit" style="min-width:52px">Fit</button>
-        <button class="btn small icon-only" id="eraser-zoom-in" title="Zoom in">+</button>
+      <div class="row eraser-maskgroup" id="eraser-mask-tools">
+        <span class="label">Mask</span>
+        <button class="btn small ghost" data-mask-op="expand" title="Grow the painted area (covers the halo around an object)">Grow</button>
+        <button class="btn small ghost" data-mask-op="shrink" title="Shrink the painted area">Shrink</button>
+        <input type="number" id="eraser-mask-amount" value="8" min="1" max="200" title="Grow / shrink by this many pixels" style="width:58px">
+        <button class="btn small ghost" data-mask-op="reverse" title="Swap painted and unpainted">Invert</button>
       </div>
       <span class="spacer"></span>
       <label class="checkbox-row" title="Write the result to a new file instead of replacing the original">
@@ -1277,7 +1698,41 @@
         Save as copy
       </label>
       <button class="btn small ghost" id="eraser-clear-mask">Clear</button>
-      <button class="btn small ghost" id="eraser-undo">Undo</button>
+      <button class="btn small ghost" id="eraser-undo" title="Undo (Ctrl+Z)">Undo</button>
+      <button class="btn small ghost" id="eraser-redo" title="Redo (Ctrl+Y)">Redo</button>
+      <button class="btn small ghost" id="eraser-keys-btn" title="Keyboard shortcuts (?)">?</button>
+      <button class="btn small" id="eraser-ai-toggle" title="AI model, settings and one-click tools">AI tools ▸</button>
+    </div>
+    <div class="eraser-subbar" id="eraser-select-row" style="display:none">
+      <span class="label">Segment Anything</span>
+      <select id="eraser-sam-model" style="width:auto;max-width:220px"></select>
+      <div class="pill-group" id="eraser-sel-mode">
+        <button type="button" class="active" data-mode="include" title="Clicks add to the selection (or just click)">Include</button>
+        <button type="button" data-mode="exclude" title="Clicks cut away from the selection (or right-click / Shift-click)">Exclude</button>
+      </div>
+      <button class="btn small ghost" id="eraser-sel-reset">Reset clicks</button>
+      <button class="btn small" id="eraser-sel-done" title="Keep this selection as part of the mask and start a new one">Keep selection</button>
+      <span class="label" id="eraser-sel-status"></span>
+    </div>
+    <div class="eraser-subbar" id="eraser-extend-row" style="display:none">
+      <span class="label">Extend by</span>
+      <label class="row" style="gap:4px"><span class="label">left</span><input type="number" id="eraser-ext-l" value="0" min="0" max="4096" step="8" style="width:72px"></label>
+      <label class="row" style="gap:4px"><span class="label">top</span><input type="number" id="eraser-ext-t" value="0" min="0" max="4096" step="8" style="width:72px"></label>
+      <label class="row" style="gap:4px"><span class="label">right</span><input type="number" id="eraser-ext-r" value="0" min="0" max="4096" step="8" style="width:72px"></label>
+      <label class="row" style="gap:4px"><span class="label">bottom</span><input type="number" id="eraser-ext-b" value="0" min="0" max="4096" step="8" style="width:72px"></label>
+      <select id="eraser-ext-preset" style="width:auto">
+        <option value="">Preset…</option>
+        <option value="all64">All sides 64 px</option>
+        <option value="all128">All sides 128 px</option>
+        <option value="all256">All sides 256 px</option>
+        <option value="1:1">Make square</option>
+        <option value="4:3">Make 4:3</option>
+        <option value="3:4">Make 3:4</option>
+        <option value="16:9">Make 16:9</option>
+        <option value="9:16">Make 9:16</option>
+      </select>
+      <button class="btn small ghost" id="eraser-ext-reset">Reset</button>
+      <span class="label" id="eraser-ext-info"></span>
     </div>
     <div class="row" id="eraser-crop-dest-row" style="display:none;gap:8px;padding:0 14px 10px">
       <label class="checkbox-row" title="File the crop straight into another dataset folder (e.g. a new training subset) instead of this one">
@@ -1289,11 +1744,47 @@
         <button class="btn small ghost" id="eraser-crop-dest-browse">Browse / new…</button>
       </div>
     </div>
-    <div class="eraser-canvas-wrap" id="eraser-canvas-wrap">
-      <canvas id="eraser-canvas"></canvas>
-      <div class="eraser-cursor" id="eraser-cursor"></div>
-      <button class="eraser-nav-arrow left" id="eraser-prev-overlay" title="Previous image (←)">‹</button>
-      <button class="eraser-nav-arrow right" id="eraser-next-overlay" title="Next image (→)">›</button>
+    <div class="eraser-resultbar" id="eraser-result-bar" style="display:none">
+      <span class="spinner" id="eraser-busy-spinner" style="display:none"></span>
+      <span class="label" id="eraser-result-text"></span>
+      <div class="progress-track" id="eraser-busy-track" style="display:none;width:140px"><div class="progress-fill" id="eraser-busy-fill" style="width:0%"></div></div>
+      <span class="spacer"></span>
+      <span class="row" id="eraser-result-bg" style="display:none;gap:6px">
+        <span class="label">Background</span>
+        <select id="eraser-result-bgmode" style="width:auto"><option value="fill">Fill with colour</option><option value="alpha">Transparent PNG</option></select>
+        <input type="color" id="eraser-result-color" value="#ffffff" style="width:34px;height:28px;padding:0">
+      </span>
+      <button class="btn small danger" id="eraser-job-cancel" style="display:none">Cancel</button>
+      <button class="btn small ghost" id="eraser-compare" style="display:none" title="Hold to see the original">Hold to compare</button>
+      <button class="btn small ghost" id="eraser-discard" style="display:none">Discard</button>
+      <button class="btn small primary" id="eraser-accept" style="display:none">Accept</button>
+    </div>
+    <div class="eraser-body">
+      <nav class="eraser-rail" id="eraser-tool-toggle" aria-label="Tools">
+        <button type="button" class="active" data-tool="brush" title="Brush (B)"><svg viewBox="0 0 24 24"><path d="M4 20c3 0 4-1.5 4-3a3 3 0 0 1 3-3l8-9-3-1-9 8a3 3 0 0 1-3 3c0 3-1 5-3 5z"/></svg><span>Brush</span><kbd>B</kbd></button>
+        <button type="button" data-tool="rect" title="Rectangle (R)"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg><span>Rect</span><kbd>R</kbd></button>
+        <button type="button" data-tool="select" title="Click an object and Segment Anything outlines it for you (S)"><svg viewBox="0 0 24 24"><path d="M5 3l5 15 2.5-6 6-2.5z"/></svg><span>Select</span><kbd>S</kbd></button>
+        <button type="button" data-tool="extend" title="Grow the picture and let a Stable Diffusion model paint the new area (E)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Extend</span><kbd>E</kbd></button>
+        <button type="button" data-tool="crop" title="Crop (C)"><svg viewBox="0 0 24 24"><path d="M7 3v14h14M3 7h14v14"/></svg><span>Crop</span><kbd>C</kbd></button>
+      </nav>
+      <div class="eraser-canvas-wrap" id="eraser-canvas-wrap">
+        <div class="eraser-scroll" id="eraser-scroll"><canvas id="eraser-canvas"></canvas></div>
+        <canvas id="eraser-mask-overlay" aria-hidden="true"></canvas>
+        <div class="eraser-cursor" id="eraser-cursor"></div>
+        <div class="eraser-hud" id="eraser-hud"></div>
+        <div class="eraser-zoomhud" id="eraser-zoomhud">
+          <button class="btn small icon-only" id="eraser-zoom-out" title="Zoom out (- or mouse wheel)">−</button>
+          <button class="btn small ghost" id="eraser-zoom-label" title="Fit to window (0)" style="min-width:64px">Fit</button>
+          <button class="btn small icon-only" id="eraser-zoom-in" title="Zoom in (+ or mouse wheel)">+</button>
+          <button class="btn small ghost" id="eraser-zoom-100" title="Actual size (1)">100%</button>
+        </div>
+        <div class="eraser-keybar" id="eraser-keybar"></div>
+        <div class="eraser-keys" id="eraser-keys-pop" style="display:none"></div>
+        <button class="eraser-nav-arrow left" id="eraser-prev-overlay" title="Previous image (←)">‹</button>
+        <button class="eraser-nav-arrow right" id="eraser-next-overlay" title="Next image (→)">›</button>
+      </div>
+      <div class="eraser-resizer" id="eraser-resizer" title="Drag to resize the AI panel" style="display:none"></div>
+      <aside class="eraser-ai-side" id="eraser-ai-side" style="display:none"></aside>
     </div>
     <div class="modal-foot">
       <button class="btn danger" id="eraser-revert" style="margin-right:auto">Revert to original</button>
@@ -1304,7 +1795,6 @@
     </div>
   </div>
 </div>
-
 <div id="toast-stack"></div>
 
 <!-- Always-visible training bar: compact when idle (expands on hover), full progress view while training -->
@@ -1327,6 +1817,13 @@
   <div class="dock-live" id="dock-live">
     <div class="dock-live-top">
       <span class="dock-title" id="dock-title">Training…</span>
+      <span class="dock-gpu gpu-live" id="dock-gpu" hidden>
+        <span class="gpu-dot" id="dock-gpu-dot"></span>
+        <span class="gpu-fact" id="dock-gpu-util"></span>
+        <span class="gpu-fact" id="dock-gpu-mem"></span>
+        <span class="gpu-fact" id="dock-gpu-temp"></span>
+        <span class="gpu-bar" title="VRAM in use"><span class="gpu-bar-fill" id="dock-gpu-bar"></span></span>
+      </span>
       <span class="dock-stats" id="dock-stats"></span>
     </div>
     <div class="dock-track"><div class="dock-fill" id="dock-fill"></div></div>
@@ -1342,17 +1839,26 @@
 <script src="{{ url_for('static', filename='js/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script src="{{ url_for('static', filename='js/context.js') }}"></script>
+<script src="{{ url_for('static', filename='js/keybinds.js') }}"></script>
+<script src="{{ url_for('static', filename='js/updates.js') }}"></script>
 <script src="{{ url_for('static', filename='js/appsettings.js') }}"></script>
 <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 <script src="{{ url_for('static', filename='js/projects.js') }}"></script>
   <script src="{{ url_for('static', filename='js/explore.js') }}"></script>
 <script src="{{ url_for('static', filename='js/collect.js') }}"></script>
 <script src="{{ url_for('static', filename='js/edit.js') }}"></script>
+<script src="{{ url_for('static', filename='js/edit_ai.js') }}"></script>
+<script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
 <script src="{{ url_for('static', filename='js/caption.js') }}"></script>
+<script src="{{ url_for('static', filename='js/captiontools.js') }}"></script>
 <script src="{{ url_for('static', filename='js/train.js') }}"></script>
 <script src="{{ url_for('static', filename='js/studio.js') }}"></script>
 <script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
 <script src="{{ url_for('static', filename='js/backend.js') }}"></script>
+<script src="{{ url_for('static', filename='js/envcard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mossenv.js') }}"></script>
+<script src="{{ url_for('static', filename='js/kohakuenv.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editenv.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

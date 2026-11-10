@@ -23,9 +23,11 @@ def _read_all() -> dict:
     if not SETTINGS_PATH.exists():
         return {}
     try:
-        return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
+    # a hand-edited file holding null/an array must not break every get()/set()
+    return data if isinstance(data, dict) else {}
 
 
 def _write_all(data: dict) -> None:
@@ -54,12 +56,17 @@ def get_booru_credentials() -> dict:
 
 
 def set_booru_credentials(source: str, api_key: str, user_id: str) -> dict:
-    creds = get_booru_credentials()
     api_key = (api_key or "").strip()
     user_id = (user_id or "").strip()
-    if api_key or user_id:
-        creds[source] = {"api_key": api_key, "user_id": user_id}
-    else:
-        creds.pop(source, None)
-    set("booru_credentials", creds)
+    # Read-modify-write under one lock or saving one site's key could drop
+    # another concurrently saved one (set() would re-read after us).
+    with _lock:
+        data = _read_all()
+        creds = data.get("booru_credentials", {}) or {}
+        if api_key or user_id:
+            creds[source] = {"api_key": api_key, "user_id": user_id}
+        else:
+            creds.pop(source, None)
+        data["booru_credentials"] = creds
+        _write_all(data)
     return creds

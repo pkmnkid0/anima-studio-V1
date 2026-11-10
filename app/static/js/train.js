@@ -19,6 +19,154 @@ const Train = (() => {
       vae_chunk_size: 0, vae_disable_cache: false, blocks_to_swap: 0,
       flash_attn: false, split_attn: false, unsloth_offload_checkpointing: false,
       sdxl_checkpoint: "", sdxl_vae: "",
+      // MOSS-Image (defaults follow the 8 GB VRAM profile)
+      moss_model: "", moss_text_encoder: "", moss_tokenizer: "", moss_vae: "", moss_max_token_length: 512,
+      moss_lora_save_format: "both", moss_timestep_sampling: "moss",
+      moss_discrete_flow_shift: 1.0, moss_sigmoid_scale: 1.0,
+      moss_ts_mu: -1.09, moss_ts_s: 0.95, moss_ts_cutoff: 0.95, moss_ts_uniform_mix: 0.01,
+      moss_blocks_to_swap: 36, moss_int8: "off", moss_attn_backend: "auto", moss_compile: "none",
+      moss_unchecked_blocks: 0, moss_fp32_modulation: false, moss_vae_sample_posterior: false,
+      moss_sample_skip_layers: "22", moss_te_mode: "offload", moss_te_gpu_gb: 6.0,
+      moss_te_cpu_gb: 48.0, moss_vram_profile: "8",
+      // which engine trains MOSS-Image: "fork" (sd-scripts moss fork) or "kohaku" (Low-VRAM trainer)
+      moss_engine: "fork",
+      // <kohaku-defaults> Low-VRAM trainer engine; generated from KOHAKU_DEFAULTS in app/train_config.py (tests keep them equal)
+      kohaku_weights: "",
+      kohaku_variant: "base",
+      kohaku_transformer: "",
+      kohaku_text_encoder: "",
+      kohaku_vae: "",
+      kohaku_text_device: "",
+      kohaku_vae_dtype: "auto",
+      kohaku_train_text_refiner: false,
+      kohaku_vram: "8",
+      kohaku_memory_profile: "minimal",
+      kohaku_base_precision: "",
+      kohaku_int8_compute: false,
+      kohaku_int8_dgrad: "",
+      kohaku_fp8_recipe: "",
+      kohaku_fp8_dgrad: "",
+      kohaku_step_release: "",
+      kohaku_compile: "",
+      kohaku_tune: "table",
+      kohaku_checkpoint: "",
+      kohaku_stream: "",
+      kohaku_stream_resident: "",
+      kohaku_optim_state: "",
+      kohaku_pinned: "",
+      kohaku_act_offload: "",
+      kohaku_grad_offload: "",
+      kohaku_fused_step: "",
+      kohaku_te_memory: "ring",
+      kohaku_te_ahead: 8,
+      kohaku_te_batch: 16,
+      kohaku_te_max_tokens: 8192,
+      kohaku_te_precision: "",
+      kohaku_te_stream_resident: "",
+      kohaku_vae_memory: "offload",
+      kohaku_vae_ahead: 8,
+      kohaku_vae_batch: "",
+      kohaku_vae_tile: "true",
+      kohaku_caption_mode: "nl",
+      kohaku_caption_shuffle: true,
+      kohaku_caption_tag_dropout: 0.0,
+      kohaku_caption_underscores: true,
+      kohaku_caption_unescape: true,
+      kohaku_text_drop: 0.1,
+      kohaku_resolution: 1024,
+      kohaku_resolution_mode: "resize",
+      kohaku_size_step: 16,
+      kohaku_aspect_min: 0.33,
+      kohaku_aspect_max: 3.0,
+      kohaku_upscale: "never",
+      kohaku_batching: "tokens",
+      kohaku_max_tokens: 4352,
+      kohaku_batch_size: 4,
+      kohaku_overlong: "drop_tokens",
+      kohaku_max_samples: "",
+      kohaku_token_budget: "estimate",
+      kohaku_latent_cache: "offline",
+      kohaku_text_cache: "offline",
+      kohaku_cache_dtype: "bf16",
+      kohaku_caption_variants: 4,
+      kohaku_flip: false,
+      kohaku_crop: "center",
+      kohaku_num_workers: 2,
+      kohaku_seed: 0,
+      kohaku_cache_dir: "",
+      kohaku_algo: "lora",
+      kohaku_preset: "attn-mlp",
+      kohaku_dim: 32,
+      kohaku_alpha: 32,
+      kohaku_algo_kwargs: "",
+      kohaku_dora: false,
+      kohaku_dora_detach: "",
+      kohaku_dropout_input: 0.0,
+      kohaku_dropout_rank: 0.0,
+      kohaku_dropout_module: 0.0,
+      kohaku_adapter_mode: "bypass",
+      kohaku_loraplus_ratio: "",
+      kohaku_train_norms: false,
+      kohaku_timestep: "moss",
+      kohaku_ts_mu: -1.09,
+      kohaku_ts_s: 0.95,
+      kohaku_ts_shift: 1.0,
+      kohaku_ts_cutoff: 0.95,
+      kohaku_ts_uniform_mix: 0.01,
+      kohaku_loss: "mse",
+      kohaku_weighting: "none",
+      kohaku_hard_weight: 1.0,
+      kohaku_optimizer: "adamw",
+      kohaku_lr: 0.0001,
+      kohaku_beta1: 0.9,
+      kohaku_beta2: 0.95,
+      kohaku_eps: "",
+      kohaku_weight_decay: 0.01,
+      kohaku_wd_rules: "moss",
+      kohaku_grad_clip: 1.0,
+      kohaku_schedule_mode: "cosine",
+      kohaku_warmup: 100,
+      kohaku_min_value: 0.1,
+      kohaku_ema: "",
+      kohaku_step_sync: "step",
+      kohaku_optimizer_kwargs: "",
+      kohaku_precision: "bf16",
+      kohaku_fp16_fix: "",
+      kohaku_duration: "steps",
+      kohaku_epochs: 10,
+      kohaku_save_every_epochs: 1,
+      kohaku_steps: 300,
+      kohaku_grad_acc: 4,
+      kohaku_log_every: 5,
+      kohaku_metrics_every: "",
+      kohaku_logger: "console",
+      kohaku_metrics_level: "train",
+      kohaku_run_inspect: true,
+      kohaku_save_every: 100,
+      kohaku_save_minutes: 30,
+      kohaku_keep_last: 3,
+      kohaku_final_checkpoint: "auto",
+      kohaku_resume: "",
+      kohaku_init_from: "",
+      kohaku_save_format: "comfy",
+      kohaku_save_merged: false,
+      kohaku_save_fused_qkv: "",
+      kohaku_checkpoint_export: true,
+      kohaku_sample_every: 0,
+      kohaku_sample_prompts: "",
+      kohaku_sample_negative: "",
+      kohaku_sample_steps: 50,
+      kohaku_sample_cfg: 3.0,
+      kohaku_sample_shift: 5.0,
+      kohaku_sample_width: 1024,
+      kohaku_sample_height: 1024,
+      kohaku_sample_seeds: "0",
+      kohaku_sample_skip_layers: "22",
+      kohaku_sample_batch: "",
+      kohaku_sample_columns: "",
+      kohaku_sample_at_start: false,
+      kohaku_extra_knobs: "",
+      // </kohaku-defaults>
     },
     general: {
       resolution_width: 1024, resolution_height_enabled: false, resolution_height: 1024,
@@ -246,6 +394,8 @@ const Train = (() => {
     return sec;
   }
 
+  function wideSec(sec) { sec.classList.add("wide"); return sec; }
+
   function sub(title, children, hint) {
     const kids = Array.isArray(children) ? children : [children];
     const head = [h("div", { class: "subgroup-title" }, title)];
@@ -267,11 +417,13 @@ const Train = (() => {
     const typeToggle = h("div", { class: "field span-full" }, [
       h("label", {}, "Model type"),
       pillGroup(
-        [{ value: "anima", label: "Anima (DiT)" }, { value: "sdxl", label: "SDXL" }],
+        [{ value: "anima", label: "Anima (DiT)" }, { value: "sdxl", label: "SDXL" }, { value: "moss", label: "MOSS-Image" }],
         state.model_type || "anima",
         (v) => { state.model_type = v; renderAllSections(); refreshPreview(); },
       ),
     ]);
+
+    if (state.model_type === "moss") return buildMossSection(typeToggle);
 
     if ((state.model_type || "anima") === "sdxl") {
       const grid = h("div", { class: "field-grid cols-3" }, [
@@ -323,6 +475,459 @@ const Train = (() => {
     ]);
 
     return section("model", "Model", "DiT checkpoint, text encoder, VAE", [grid, toggles], { open: true });
+  }
+
+  // ------------------------------ Model (MOSS-Image) ------------------------------
+
+  let mossProfiles = null;           // {key: {label, model, general, note, ...}} from /api/train/moss/profiles
+  let mossProfilesLoading = false;
+
+  function applyMossProfile(key) {
+    const p = mossProfiles && mossProfiles[key];
+    if (!p) return;
+    Object.assign(state.model, p.model, { moss_vram_profile: key });
+    Object.assign(state.general, p.general);
+  }
+
+  function buildMossSection(typeToggle) {
+    const m = state.model;
+    if (m.moss_engine === "kohaku") return buildKohakuSection(typeToggle);
+    if (!mossProfiles && !mossProfilesLoading) {
+      mossProfilesLoading = true;
+      Api.mossProfiles().then((d) => { mossProfiles = d.profiles; })
+        .catch(() => {}).finally(() => { mossProfilesLoading = false; renderAllSections(); });
+    }
+    const profileKeys = mossProfiles ? Object.keys(mossProfiles) : ["8", "10", "10-int8", "12", "16", "24", "24-fast"];
+    const profileLabel = (k) => (mossProfiles && mossProfiles[k] ? mossProfiles[k].label : k);
+    const profileSelect = selectInput(profileKeys.map((k) => ({ value: k, label: profileLabel(k) })),
+      m.moss_vram_profile in (mossProfiles || {}) || !mossProfiles ? m.moss_vram_profile : "8",
+      (v) => { applyMossProfile(v); renderAllSections(); refreshPreview(); });
+    const note = h("div", { class: "subgroup-hint" },
+      (mossProfiles && mossProfiles[m.moss_vram_profile] && mossProfiles[m.moss_vram_profile].note) || "");
+    const suggestBtn = h("button", { class: "btn small", type: "button", onclick: async () => {
+      try {
+        const g = await Api.monitorGpu();
+        const gpu = g && g.available ? (g.gpus || [])[0] : null;
+        if (!gpu) return toast("No NVIDIA GPU detected - pick a profile by hand.", "info");
+        const gb = gpu.mem_total_mb / 1024;
+        const d = await Api.mossProfiles(gb);
+        mossProfiles = d.profiles;
+        applyMossProfile(d.suggested);
+        renderAllSections(); refreshPreview();
+        toast(`${gpu.name} (${gb.toFixed(0)} GB): applied the "${profileLabel(d.suggested)}" profile.`, "success");
+      } catch (err) { toast(err.message, "error"); }
+    } }, "Pick for my GPU");
+
+    const profileRow = h("div", { class: "field span-full" }, [
+      h("label", {}, ["VRAM profile ", h("span", { class: "hint-dot", title: "Sets Blocks to swap, INT8, compile, attention and how the 9B text encoder is loaded for your card. Every profile except the INT8 one trains the full bf16 DiT. You can still change any value below." }, "?")]),
+      h("div", { class: "row", style: "gap:8px;align-items:center" }, [profileSelect, suggestBtn]),
+      note,
+    ]);
+
+    const grid = h("div", { class: "field-grid cols-3" }, [
+      typeToggle, engineToggle(), profileRow,
+      field("MOSS-Image model (folder or DiT file)", pathInput(m.moss_model, (v) => m.moss_model = v), { span: "full",
+        hint: "The OpenMOSS-Team/MOSS-Image-Base folder (transformer/, text_encoder/, tokenizer/, vae/). Base is recommended; LoRAs trained on Base also work on SFT. Or the path of a single bf16 DiT .safetensors file - then fill in the Text encoder, Tokenizer folder and VAE fields below yourself (file names do not matter). Quantized checkpoints cannot be trained." }),
+      field("Text encoder", pathInput(m.moss_text_encoder, (v) => m.moss_text_encoder = v),
+        { hint: "Qwen3.5-9B in bf16: either the HF text_encoder/ folder, or ONE bf16 .safetensors file (ComfyUI export - no config.json needed; quantized/int8 files are refused). Empty only if the model is a pipeline folder (then its text_encoder/ is used)." }),
+      field("Tokenizer folder (optional)", pathInput(m.moss_tokenizer, (v) => m.moss_tokenizer = v),
+        { hint: "The tokenizer/ folder of OpenMOSS-Team/MOSS-Image-Base (a few MB). Optional: if empty, a single-file text encoder downloads just the tokenizer (a few MB) once." }),
+      field("VAE", pathInput(m.moss_vae, (v) => m.moss_vae = v),
+        { hint: "Empty only if the model is a pipeline folder (then its vae/ is used - recommended, its statistics define the latent space)." }),
+      field("Max caption tokens", numberInput(m.moss_max_token_length, (v) => m.moss_max_token_length = v, { step: 32, min: 32, max: 4096 }),
+        { hint: "Qwen3.5 tokens including the chat template. Natural-language captions are long; 512 fits most." }),
+      field("LoRA key format", selectInput([{ value: "both" }, { value: "split" }, { value: "fused" }], m.moss_lora_save_format, (v) => m.moss_lora_save_format = v),
+        { hint: "both = split q/k/v plus fused qkv keys, so ComfyUI/Forge apply it on any MOSS-Image checkpoint." }),
+    ]);
+
+    // timestep sampling
+    const tsFields = h("div", { class: "field-grid cols-3" });
+    const flowShift = field("Flow shift", numberInput(m.moss_discrete_flow_shift, (v) => m.moss_discrete_flow_shift = v, { step: 0.1, min: 0.01 }),
+      { hint: "MOSS-Image trains with 1.0; its inference shift of 5.0 is applied only when sampling." });
+    const sigmoid = field("Sigmoid scale", numberInput(m.moss_sigmoid_scale, (v) => m.moss_sigmoid_scale = v, { step: 0.1 }));
+    const mossTs = [
+      field("mu", numberInput(m.moss_ts_mu, (v) => m.moss_ts_mu = v, { step: 0.01 })),
+      field("s", numberInput(m.moss_ts_s, (v) => m.moss_ts_s = v, { step: 0.01, min: 0.01 })),
+      field("cutoff", numberInput(m.moss_ts_cutoff, (v) => m.moss_ts_cutoff = v, { step: 0.01, min: 0.05, max: 1 })),
+      field("uniform mix", numberInput(m.moss_ts_uniform_mix, (v) => m.moss_ts_uniform_mix = v, { step: 0.01, min: 0, max: 1 })),
+    ];
+    const syncTs = () => {
+      mossTs.forEach((f) => { f.style.display = m.moss_timestep_sampling === "moss" ? "" : "none"; });
+      flowShift.style.display = ["moss", "sigma", "shift"].includes(m.moss_timestep_sampling) ? "" : "none";
+      sigmoid.style.display = ["sigmoid", "shift", "flux_shift"].includes(m.moss_timestep_sampling) ? "" : "none";
+    };
+    const tsSelect = selectInput(["moss", "sigmoid", "uniform", "sigma", "shift", "flux_shift"].map((v) => ({ value: v })),
+      m.moss_timestep_sampling, (v) => { m.moss_timestep_sampling = v; syncTs(); });
+    tsFields.append(field("Timestep sampling", tsSelect, { hint: "moss = the MOSS-Image training recipe (biased toward high noise). Recommended." }),
+      flowShift, sigmoid, ...mossTs);
+    syncTs();
+
+    // memory + speed
+    const memGrid = h("div", { class: "field-grid cols-3" }, [
+      field("Blocks to swap (0-40)", numberInput(m.moss_blocks_to_swap, (v) => { m.moss_blocks_to_swap = v; if (v > 0 && m.moss_int8 !== "off") { m.moss_int8 = "off"; renderAllSections(); } }, { step: 1, min: 0, max: 40 }),
+        { hint: "Parks N of the 42 blocks (~0.23 GB each) in system RAM. Roughly 0.23 GB of VRAM saved per block, at the cost of speed. 36 trains the full bf16 DiT in ~6 GB." }),
+      field("Unchecked blocks", numberInput(m.moss_unchecked_blocks, (v) => m.moss_unchecked_blocks = v, { step: 1, min: 0, max: 42 }),
+        { hint: "Skip gradient checkpointing for the last N blocks: slightly faster, ~1 GB more VRAM each at 1024 px." }),
+      field("Sample CFG skip layers", textInput(m.moss_sample_skip_layers, (v) => m.moss_sample_skip_layers = v, { placeholder: "22" }),
+        { hint: "Blocks skipped in the negative pass of sample images (official default 22). Empty = plain CFG." }),
+      field("Attention", selectInput(["auto", "cudnn", "efficient", "flash", "torch"].map((v) => ({ value: v })), m.moss_attn_backend, (v) => m.moss_attn_backend = v),
+        { hint: "cudnn is ~2.4x faster but needs cuDNN 9.24+ (the environment installs torch 2.14.1+cu130); the Backend tab's check tells you." }),
+      field("Compile", selectInput(["none", "situ", "blocks"].map((v) => ({ value: v })), m.moss_compile, (v) => m.moss_compile = v),
+        { hint: "torch.compile (needs Triton; on Windows Visual Studio Build Tools). blocks is fastest; with Blocks to swap it falls back to situ." }),
+      field("INT8 base", selectInput([{ value: "off", label: "off (full bf16)" }, { value: "on", label: "on" }, { value: "on_bwd", label: "on (int8 backward)" }],
+        m.moss_int8, (v) => { m.moss_int8 = v; if (v !== "off" && m.moss_blocks_to_swap > 0) { m.moss_blocks_to_swap = 0; renderAllSections(); } }),
+        { hint: "Quantizes the frozen base to INT8: faster and ~4.5 GB lighter, but the LoRA learns against a quantized base and it cannot be combined with Blocks to swap." }),
+    ]);
+    const toggles = h("div", { class: "field-grid cols-3" }, [
+      toggleRow(m.moss_fp32_modulation, (v) => m.moss_fp32_modulation = v, "FP32 modulation", "Keeps the timestep MLP in fp32. Negligible cost."),
+      toggleRow(m.moss_vae_sample_posterior, (v) => m.moss_vae_sample_posterior = v, "Sample VAE posterior", "Instead of its mode, when caching latents."),
+    ]);
+
+    // text encoder loading
+    const teGpu = field("Text-encoder GPU budget (GB)", numberInput(m.moss_te_gpu_gb, (v) => m.moss_te_gpu_gb = v, { step: 0.5, min: 1 }),
+      { hint: "How much VRAM the 9B text encoder may use while captions are cached. The rest of its layers stream from RAM." });
+    const teCpu = field("Text-encoder RAM budget (GB)", numberInput(m.moss_te_cpu_gb, (v) => m.moss_te_cpu_gb = v, { step: 1, min: 8 }));
+    const syncTe = () => { const off = m.moss_te_mode === "offload"; teGpu.style.display = off ? "" : "none"; teCpu.style.display = off ? "" : "none"; };
+    const teSelect = selectInput([
+      { value: "full", label: "full - bf16 on the GPU (needs ~18 GB)" },
+      { value: "offload", label: "offload - exact bf16, streamed from RAM (8-16 GB cards)" },
+      { value: "nf4", label: "nf4 - 4-bit on the GPU (fast, slightly different embeddings)" },
+      { value: "int8", label: "int8 - 8-bit on the GPU (slightly different embeddings)" },
+    ], m.moss_te_mode, (v) => { m.moss_te_mode = v; syncTe(); });
+    const teGrid = h("div", { class: "field-grid cols-3" }, [
+      field("Text encoder loading", teSelect, { span: "full",
+        hint: "The 9B Qwen3.5 text encoder only runs while captions are cached, before the DiT loads. offload keeps the exact bf16 weights, so nothing about the training changes - it is just slower (once per dataset) and needs ~20 GB of free RAM. nf4/int8 are quick but encode captions slightly differently from the bf16 model that inference uses." }),
+      teGpu, teCpu,
+    ]);
+    syncTe();
+
+    return section("model", "Model · MOSS-Image", "5B DiT, Qwen3.5-9B text encoder, FLUX.2 VAE", [
+      grid,
+      sub("Timestep sampling", tsFields),
+      sub("Memory & speed", [memGrid, toggles]),
+      sub("Text encoder (caption caching)", teGrid,
+        "Text-encoder outputs are always cached for MOSS-Image, so caption shuffling, tag dropout and token warmup are ignored (caption dropout still works)."),
+    ], { open: true });
+  }
+
+  // ------------------------------ Model (MOSS-Image · low-VRAM trainer) ------------------------------
+
+  let kohakuProfiles = null;         // {key: {label, model, note, min_vram_gb}} from /api/train/kohaku/profiles
+  let kohakuProfilesLoading = false;
+  let kohakuParts = null;            // the cards of the low-VRAM engine, built once per render and placed on the tabs
+
+  function engineToggle() {
+    return h("div", { class: "field span-full" }, [
+      h("label", {}, ["Trainer engine ", h("span", { class: "hint-dot", title: "Both engines train MOSS-Image and share your dataset folders and output folder. Standard = the bundled sd-scripts fork. Low-VRAM = a second trainer built for small cards (its own environment, set up on the Backend tab): trains straight on the int8 files and streams weights, so 6-12 GB cards work. Try the same data with each and compare." }, "?")]),
+      pillGroup(
+        [{ value: "fork", label: "Standard trainer (sd-scripts)" }, { value: "kohaku", label: "Low-VRAM trainer (6 GB+)" }],
+        state.model.moss_engine || "fork",
+        (v) => { state.model.moss_engine = v; renderAllSections(); refreshPreview(); },
+      ),
+    ]);
+  }
+
+  function applyKohakuProfile(key) {
+    const p = kohakuProfiles && kohakuProfiles[key];
+    if (!p) return;
+    Object.assign(state.model, p.model, { kohaku_vram: key });
+  }
+
+  // one low-VRAM trainer option -> a labelled input bound to state.model[key]
+  function kf(key, label, kind, opts = {}) {
+    const m = state.model;
+    const set = (v) => { m[key] = v; if (opts.after) opts.after(); };
+    let input;
+    if (kind === "bool") return toggleRow(m[key], set, label, opts.hint);
+    if (kind === "path") input = pathInput(m[key], set);
+    else if (kind === "num") input = numberInput(m[key], set, { step: opts.step, min: opts.min, max: opts.max });
+    else if (kind === "select") input = selectInput((opts.options || []).map((o) => (typeof o === "object" ? o : { value: o, label: o === "" ? "default" : o })), m[key], set);
+    else if (kind === "area") {
+      input = h("textarea", { rows: opts.rows || 3, placeholder: opts.placeholder || "", class: "mono" });
+      input.value = m[key] ?? "";
+      input.addEventListener("input", () => set(input.value));
+    } else input = textInput(m[key], set, { placeholder: opts.placeholder || "" });
+    return field(label, input, { hint: opts.hint, span: opts.span });
+  }
+
+  function buildKohakuSection(typeToggle) {
+    const m = state.model;
+    if (!kohakuProfiles && !kohakuProfilesLoading) {
+      kohakuProfilesLoading = true;
+      Api.kohakuProfiles().then((d) => { kohakuProfiles = d.profiles; })
+        .catch(() => {}).finally(() => { kohakuProfilesLoading = false; renderAllSections(); });
+    }
+    const keys = kohakuProfiles ? Object.keys(kohakuProfiles) : ["6", "8", "12", "16", "24", "auto"];
+    const label = (k) => (kohakuProfiles && kohakuProfiles[k] ? kohakuProfiles[k].label : k);
+    const profileSelect = selectInput(keys.map((k) => ({ value: k, label: label(k) })), m.kohaku_vram,
+      (v) => { applyKohakuProfile(v); renderAllSections(); refreshPreview(); });
+    const note = h("div", { class: "subgroup-hint" }, (kohakuProfiles && kohakuProfiles[m.kohaku_vram] && kohakuProfiles[m.kohaku_vram].note) || "");
+    const suggestBtn = h("button", { class: "btn small", type: "button", onclick: async () => {
+      try {
+        const g = await Api.monitorGpu();
+        const gpu = g && g.available ? (g.gpus || [])[0] : null;
+        if (!gpu) return toast("No NVIDIA GPU detected - pick a profile by hand.", "info");
+        const gb = gpu.mem_total_mb / 1024;
+        const d = await Api.kohakuProfiles(gb);
+        kohakuProfiles = d.profiles;
+        applyKohakuProfile(d.suggested);
+        renderAllSections(); refreshPreview();
+        toast(`${gpu.name} (${gb.toFixed(0)} GB): applied the "${label(d.suggested)}" layer.`, "success");
+      } catch (err) { toast(err.message, "error"); }
+    } }, "Pick for my GPU");
+
+    // ---- model files
+    const checkOut = h("div", { class: "subgroup-hint", style: "white-space:pre-wrap" }, "");
+    const checkBtn = h("button", { class: "btn small", type: "button", onclick: async () => {
+      try {
+        const r = await Api.kohakuCheck({ weights: m.kohaku_weights, variant: m.kohaku_variant, transformer: m.kohaku_transformer,
+          text_encoder: m.kohaku_text_encoder, vae: m.kohaku_vae });
+        checkOut.textContent = r.problems && r.problems.length
+          ? "Problem: " + r.problems.join("\n")
+          : `Layout: ${r.layout}\nDiT: ${r.dit}\nText encoder: ${r.te}\nVAE: ${r.vae}`;
+      } catch (err) { toast(err.message, "error"); }
+    } }, "Check these files");
+    const files = h("div", { class: "field-grid cols-3" }, [
+      typeToggle, engineToggle(),
+      field("Weights folder", pathInput(m.kohaku_weights, (v) => m.kohaku_weights = v), { span: "full",
+        hint: "A ComfyUI models folder (diffusion_models/, text_encoders/, vae/ - the Comfy-Org/MOSS-Image repack; its int8 ConvRot files train as they are) or an OpenMOSS-Team/MOSS-Image-Base pipeline folder (transformer/, text_encoder/, vae/). A single DiT .safetensors also works if you fill in the Text encoder and VAE below. Taken exactly as typed." }),
+      kf("kohaku_variant", "Variant", "select", { options: ["base", "sft"], hint: "base is recommended; LoRAs trained on Base also work on SFT." }),
+      kf("kohaku_transformer", "DiT file (optional)", "text", { placeholder: "empty = the default file in the weights folder", span: "full",
+        hint: "A file name under diffusion_models/ (with or without .safetensors) or any path. Empty picks moss_image_<variant>_int8_convrot, else _bf16." }),
+      kf("kohaku_text_encoder", "Text encoder (optional)", "text", { placeholder: "empty = qwen3.5_9b_int8_convrot, else _bf16", span: "full",
+        hint: "A file name under text_encoders/, any path, or a Qwen3.5 folder. No config.json or tokenizer needed: the trainer ships both." }),
+      kf("kohaku_vae", "VAE (optional)", "text", { placeholder: "empty = flux2-vae_small, else flux2-vae", span: "full" }),
+      h("div", { class: "field span-full" }, [h("div", { class: "row", style: "gap:8px;align-items:center" }, [checkBtn]), checkOut]),
+    ]);
+
+    // ---- hardware / memory
+    const manual = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_checkpoint", "Checkpointing", "text", { placeholder: "block | sub-block | selective | none" }),
+      kf("kohaku_stream", "Weight streaming", "select", { options: ["", "off", "ring", "swap"] }),
+      kf("kohaku_stream_resident", "Resident blocks", "num", { min: 0, step: 1 }),
+      kf("kohaku_optim_state", "Optimizer state", "select", { options: ["", "gpu", "stream", "cpu"] }),
+      kf("kohaku_pinned", "Pinned host memory", "select", { options: ["", "true", "false"] }),
+      kf("kohaku_act_offload", "Activation offload", "select", { options: ["", "true", "false"] }),
+      kf("kohaku_grad_offload", "Gradient offload", "select", { options: ["", "true", "false"] }),
+      kf("kohaku_fused_step", "Fused step", "select", { options: ["", "true", "false"] }),
+    ]);
+    const syncManual = () => { manual.style.display = m.kohaku_memory_profile === "manual" ? "" : "none"; };
+    syncManual();
+    const memGrid = h("div", { class: "field-grid cols-3" }, [
+      h("div", { class: "field span-full" }, [
+        h("label", {}, ["VRAM layer ", h("span", { class: "hint-dot", title: "Presets for 6 / 8 / 12 / 16 / 24 GB cards. A card gets the largest layer it holds within 5 %, so a 10 GB card gets the 8 GB layer (its allocator is capped at 8 GB in the authors' tests). Applying one fills the fields below; you can still change any of them." }, "?")]),
+        h("div", { class: "row", style: "gap:8px;align-items:center" }, [profileSelect, suggestBtn]), note,
+      ]),
+      kf("kohaku_memory_profile", "Memory profile", "text", { placeholder: "minimal", after: syncManual,
+        hint: "A profile name: speed, balanced, low, minimal, auto, a catalog name such as ckpt-ring2-actoff-optcpu-gradoff, or manual (then set the streaming fields shown below)." }),
+      kf("kohaku_base_precision", "Base precision", "select", { options: ["", "auto", "compute", "int8", "fp8", "fp8_compute", "mxfp8"],
+        hint: "auto (default) keeps what the DiT file stores: an int8 ConvRot file trains on its int8 weights. int8 quantizes a bf16 file while loading. compute dequantizes to 16 bit." }),
+      kf("kohaku_precision", "Compute precision", "select", { options: ["bf16", "fp16"], hint: "bf16 on RTX 30-series and newer. fp16 only for older cards (uses the online residual fix)." }),
+      kf("kohaku_fp16_fix", "FP16 overflow fix", "select", { options: ["", "online", "weights", "fp32_residual", "none"],
+        hint: "Only used with fp16 compute. Empty keeps the fp16 layer's default (online, c = 1/16); weights folds the scales into the weights; fp32_residual keeps the residual stream in fp32." }),
+      kf("kohaku_int8_compute", "INT8 compute", "bool", { hint: "Int8 bases run int8 matmuls instead of weight-only (CUDA)." }),
+      kf("kohaku_int8_dgrad", "INT8 input gradient", "select", { options: ["", "int8", "16bit"] }),
+      kf("kohaku_fp8_recipe", "FP8 scaling", "select", { options: ["", "tensor", "row", "block"] }),
+      kf("kohaku_fp8_dgrad", "FP8 input gradient", "select", { options: ["", "fp8", "16bit"] }),
+      kf("kohaku_compile", "torch.compile", "select", { options: ["", "off", "block", "model"] }),
+      kf("kohaku_tune", "Kernel tuning", "select", { options: ["table", "off"], hint: "table times the kernels once per card before step 0 and stores the result; off skips all timing (quick smoke run)." }),
+      kf("kohaku_step_release", "Release cached VRAM", "text", { placeholder: "none | empty_cache | N", hint: "none keeps the allocator's cache between steps; empty_cache frees it every step (slower); N every N steps." }),
+    ]);
+    const placement = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_te_memory", "Text encoder placement", "select", { options: ["", "auto", "resident", "ring", "offload", "cpu"],
+        hint: "ring streams its layers through the GPU (about 2 GB at a time) and frees them between passes." }),
+      kf("kohaku_te_ahead", "Batches per pass", "num", { min: 1, step: 1 }),
+      kf("kohaku_te_batch", "Prompts per call", "num", { min: 1, step: 1 }),
+      kf("kohaku_te_max_tokens", "Tokens per call", "num", { min: 256, step: 256 }),
+      kf("kohaku_te_precision", "Text encoder precision", "select", { options: ["", "auto", "compute", "int8", "fp8", "fp8_compute", "mxfp8"] }),
+      kf("kohaku_te_stream_resident", "Ring slots", "num", { min: 1, step: 1 }),
+      kf("kohaku_text_device", "Text encoder device", "text", { placeholder: "empty = the training GPU; cpu", hint: "cpu only with the offline text cache." }),
+      kf("kohaku_vae_memory", "VAE placement", "select", { options: ["", "auto", "resident", "offload", "ring", "cpu"] }),
+      kf("kohaku_vae_ahead", "VAE batches per pass", "num", { min: 1, step: 1 }),
+      kf("kohaku_vae_batch", "Images per VAE call", "num", { min: 1, step: 1 }),
+      kf("kohaku_vae_tile", "VAE tiling", "select", { options: ["", "true", "false"], hint: "Tiled encode saves VRAM on big images." }),
+      kf("kohaku_vae_dtype", "VAE precision", "select", { options: ["auto", "bf16", "fp16", "fp32"] }),
+    ]);
+
+    // ---- adapter
+    const algos = ["lora", "locon", "loha", "lokr", "oft", "boft", "glora", "ia3", "dylora", "tlora", "dora", "full"];
+    const ALGO_DEFAULTS = {
+      lora: { kohaku_dim: 32, kohaku_alpha: 32, kohaku_lr: 1e-4 }, locon: { kohaku_dim: 32, kohaku_alpha: 32, kohaku_lr: 1e-4 },
+      loha: { kohaku_dim: 16, kohaku_alpha: 8, kohaku_lr: 2e-4 }, lokr: { kohaku_dim: 10000, kohaku_alpha: 1, kohaku_lr: 2e-4 },
+      oft: { kohaku_dim: 32, kohaku_alpha: 0, kohaku_lr: 1e-4 }, dora: { kohaku_dim: 16, kohaku_alpha: 16, kohaku_lr: 1e-4 },
+      full: { kohaku_lr: 5e-5, kohaku_optimizer: "muon", kohaku_schedule_mode: "cosine", kohaku_warmup: 500, kohaku_ema: 0.9999 },
+    };
+    const adapter = h("div", { class: "field-grid cols-3" }, [
+      field("Algorithm", selectInput(algos.map((v) => ({ value: v })), m.kohaku_algo, (v) => {
+        m.kohaku_algo = v; Object.assign(m, ALGO_DEFAULTS[v] || {}); renderAllSections(); refreshPreview();
+      }), { hint: "Choosing an algorithm fills its rank, alpha and learning-rate defaults from its presets. full = full finetune (needs a 24 GB card with host streaming)." }),
+      kf("kohaku_preset", "Target modules", "text", { placeholder: "attn-mlp", hint: "attn | attn-mlp | full-block | all, plus +text-refiner +modulation +embed, or a LyCORIS-style toml path." }),
+      kf("kohaku_dim", "Rank (DIM)", "num", { min: 1, step: 1, hint: "For OFT this is the block size; LoKr uses 10000 for full matrices." }),
+      kf("kohaku_alpha", "Alpha", "num", { step: 0.5 }),
+      kf("kohaku_adapter_mode", "Adapter mode", "select", { options: ["bypass", "merge"] }),
+      kf("kohaku_loraplus_ratio", "LoRA+ ratio", "num", { step: 0.5, min: 1, hint: "Learning-rate ratio of the up / down factors; empty = off." }),
+      kf("kohaku_dropout_input", "Dropout", "num", { step: 0.01, min: 0, max: 1 }),
+      kf("kohaku_dropout_rank", "Rank dropout", "num", { step: 0.01, min: 0, max: 1 }),
+      kf("kohaku_dropout_module", "Module dropout", "num", { step: 0.01, min: 0, max: 1 }),
+      kf("kohaku_algo_kwargs", "Algorithm arguments (JSON)", "text", { span: "full", placeholder: '{"factor": 8}',
+        hint: "Passed unchanged to the LyCORIS module, e.g. {\"factor\": 8} for LoKr or {\"use_tucker\": true}. Empty keeps the preset's." }),
+      kf("kohaku_dora", "DoRA (weight decomposition)", "bool"),
+      kf("kohaku_dora_detach", "DoRA: detach the norm", "select", { options: ["", "true", "false"] }),
+      kf("kohaku_train_norms", "Train norm layers", "bool"),
+      kf("kohaku_train_text_refiner", "Also train the 2 text-refiner blocks", "bool"),
+    ]);
+
+    // ---- optimiser
+    const optim = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_optimizer", "Optimizer", "select", { options: ["adamw", "adamw16", "adamw8bit", "adamw8bit_kernel", "muon", "prodigy", "schedule_free"] }),
+      kf("kohaku_lr", "Learning rate", "num", { step: "any", min: 0 }),
+      kf("kohaku_weight_decay", "Weight decay", "num", { step: 0.001, min: 0 }),
+      kf("kohaku_beta1", "Beta 1", "num", { step: 0.01 }),
+      kf("kohaku_beta2", "Beta 2", "num", { step: 0.01 }),
+      kf("kohaku_eps", "Epsilon", "num", { step: "any", hint: "empty = 1e-8" }),
+      kf("kohaku_wd_rules", "Weight-decay rules", "select", { options: ["moss", "none", "all"] }),
+      kf("kohaku_grad_clip", "Gradient clip", "num", { step: 0.1, min: 0 }),
+      kf("kohaku_ema", "EMA", "num", { step: 0.0001, min: 0, max: 1, hint: "empty or 0 = off; e.g. 0.9999." }),
+      kf("kohaku_schedule_mode", "LR schedule", "select", { options: ["cosine", "constant"] }),
+      kf("kohaku_warmup", "Warmup steps", "num", { min: 0, step: 1 }),
+      kf("kohaku_min_value", "Final LR fraction", "num", { min: 0, max: 1, step: 0.05, hint: "Cosine only: the learning rate ends at this fraction of the peak." }),
+      kf("kohaku_step_sync", "Step sync", "select", { options: ["step", "deferred"] }),
+      kf("kohaku_optimizer_kwargs", "Optimizer arguments (JSON)", "text", { span: "full", placeholder: '{"weight_decay": 0.01}' }),
+    ]);
+
+    // ---- objective
+    const tsFields = [
+      kf("kohaku_ts_mu", "mu", "num", { step: 0.01 }), kf("kohaku_ts_s", "s", "num", { step: 0.01, min: 0.01 }),
+      kf("kohaku_ts_shift", "shift", "num", { step: 0.1, min: 0.01 }), kf("kohaku_ts_cutoff", "cutoff", "num", { step: 0.01, min: 0.05, max: 1 }),
+      kf("kohaku_ts_uniform_mix", "uniform mix", "num", { step: 0.01, min: 0, max: 1 }),
+    ];
+    const syncTs = () => tsFields.forEach((f) => { f.style.display = m.kohaku_timestep === "moss" ? "" : "none"; });
+    const objective = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_timestep", "Timestep sampling", "select", { options: ["moss", "uniform", "logit_normal"], after: syncTs,
+        hint: "moss = the MOSS-Image training recipe (biased toward high noise). Recommended." }),
+      ...tsFields,
+      kf("kohaku_loss", "Loss", "select", { options: ["mse", "huber", "l1"] }),
+      kf("kohaku_weighting", "Loss weighting", "select", { options: ["none", "x0", "eps"] }),
+      kf("kohaku_hard_weight", "Data loss weight", "num", { step: 0.1, min: 0 }),
+    ]);
+    syncTs();
+
+    // ---- data
+    const data = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_caption_mode", "Caption style", "select", { options: [{ value: "nl", label: "Natural language" }, { value: "tags", label: "Tags (comma separated)" }],
+        hint: "MOSS-Image reads captions with a Qwen3.5 language model, so natural language is the usual choice. Captions come from the .txt file next to each image." }),
+      kf("kohaku_caption_shuffle", "Shuffle tags", "bool", { hint: "Tags style only." }),
+      kf("kohaku_caption_tag_dropout", "Tag dropout", "num", { step: 0.05, min: 0, max: 1, hint: "Tags style only." }),
+      kf("kohaku_caption_underscores", "Underscores to spaces", "bool"),
+      kf("kohaku_caption_unescape", "Unescape \\( \\)", "bool"),
+      kf("kohaku_text_drop", "Empty-caption chance", "num", { step: 0.01, min: 0, max: 1, hint: "Probability a sample trains on the empty prompt (caption dropout)." }),
+      kf("kohaku_resolution", "Resolution (px side)", "num", { step: 64, min: 256, hint: "The target area is side x side; the aspect ratio of each image is kept." }),
+      kf("kohaku_resolution_mode", "Resolution mode", "select", { options: ["resize", "bucket", "shifted_square", "square_crop"] }),
+      kf("kohaku_size_step", "Size step", "num", { step: 16, min: 16 }),
+      kf("kohaku_aspect_min", "Aspect min", "num", { step: 0.01 }),
+      kf("kohaku_aspect_max", "Aspect max", "num", { step: 0.01 }),
+      kf("kohaku_upscale", "Upscale small images", "select", { options: ["never", "to_area"] }),
+      kf("kohaku_batching", "Batching", "select", { options: ["tokens", "tokens_ffd", "count"], hint: "tokens packs images until the token budget below is full (no padding waste); count uses a fixed batch size." }),
+      kf("kohaku_max_tokens", "Tokens per batch", "num", { step: 256, min: 512, hint: "Image + caption tokens per batch. 4352 = one 1 MP image; the VRAM layer sets it." }),
+      kf("kohaku_batch_size", "Batch size (count mode)", "num", { step: 1, min: 1 }),
+      kf("kohaku_overlong", "Too-long samples", "select", { options: ["drop", "truncate_text", "drop_tokens"] }),
+      kf("kohaku_max_samples", "Max samples per batch", "num", { step: 1, min: 0 }),
+      kf("kohaku_token_budget", "Token budget", "select", { options: ["estimate", "render", "exact"] }),
+      kf("kohaku_latent_cache", "Latent cache", "select", { options: ["offline", "online", "off"], hint: "offline encodes every image once before training, so the VAE is not held while training." }),
+      kf("kohaku_text_cache", "Text cache", "select", { options: ["offline", "online", "off"], hint: "offline encodes every caption once before training, then frees the 9B text encoder." }),
+      kf("kohaku_cache_dtype", "Cache precision", "select", { options: ["bf16", "fp16", "fp32", "fp8"] }),
+      kf("kohaku_caption_variants", "Caption variants per image", "num", { step: 1, min: 1 }),
+      kf("kohaku_flip", "Horizontal flip", "bool"),
+      kf("kohaku_crop", "Crop", "select", { options: ["center", "random"], hint: "Offline latent caches need center." }),
+      kf("kohaku_num_workers", "Data workers", "num", { step: 1, min: 0 }),
+      kf("kohaku_seed", "Seed", "num", { step: 1 }),
+      kf("kohaku_cache_dir", "Cache folder (optional)", "path", { span: "full", hint: "Empty = <output folder>/kohaku_cache." }),
+    ]);
+
+    // ---- duration (steps or epochs)
+    const epochMode = m.kohaku_duration === "epochs";
+    const perBatch = (() => {
+      const px = Number(m.kohaku_resolution) || 1024, tokens = Number(m.kohaku_max_tokens) || 4352;
+      return m.kohaku_batching === "count" ? Math.max(1, Number(m.kohaku_batch_size) || 1)
+        : Math.max(1, Math.floor(tokens / (px * px / 256 + 200)));
+    })();
+    const acc = Number(m.kohaku_grad_acc) || 1;
+    const stepsHint = `About ${perBatch} image${perBatch === 1 ? "" : "s"} per batch x ${acc} accumulation = ${perBatch * acc} images per step (repeats counted). A step is one optimizer update.`;
+    const durationToggle = h("div", { class: "field span-full" }, [
+      h("label", {}, ["Train for ", h("span", { class: "hint-dot", title: "Steps count optimizer updates. Epochs count passes over your whole dataset (images x repeats); the trainer itself only counts steps, so the epoch number is converted to steps when training starts, from your dataset size, batch size and accumulation. Batches are packed by token budget, so the result is a close estimate rather than exact." }, "?")]),
+      pillGroup([{ value: "steps", label: "Steps" }, { value: "epochs", label: "Epochs" }], m.kohaku_duration || "steps",
+        (v) => { m.kohaku_duration = v; renderAllSections(); refreshPreview(); }),
+    ]);
+    const duration = h("div", { class: "field-grid cols-3" }, [
+      durationToggle,
+      epochMode
+        ? kf("kohaku_epochs", "Epochs", "num", { step: 1, min: 0.1, hint: `Passes over the dataset. Steps per epoch = images x repeats / (${perBatch} per batch x ${acc} accumulation); the exact step count is shown when training starts.` })
+        : kf("kohaku_steps", "Steps", "num", { step: 10, min: 1, hint: stepsHint }),
+      kf("kohaku_grad_acc", "Gradient accumulation", "num", { step: 1, min: 1 }),
+      epochMode
+        ? kf("kohaku_save_every_epochs", "Save every (epochs)", "num", { step: 0.5, min: 0, hint: "0 = only at the end." })
+        : kf("kohaku_save_every", "Save every (steps)", "num", { step: 10, min: 0 }),
+    ]);
+
+    // ---- checkpoints / logging
+    const run = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_save_minutes", "Also save every (minutes)", "num", { step: 5, min: 0 }),
+      kf("kohaku_keep_last", "Keep last checkpoints", "num", { step: 1, min: 0 }),
+      kf("kohaku_final_checkpoint", "Final resume checkpoint", "select", { options: ["auto", "true", "false"] }),
+      kf("kohaku_save_format", "LoRA file format", "select", { options: ["comfy", "hf", "both", "none"], hint: "comfy = the key layout ComfyUI's MOSS-Image LoRA loader reads. The finished file is copied to <output folder>/<name>.safetensors." }),
+      kf("kohaku_save_fused_qkv", "Fused q/k/v keys", "select", { options: ["", "auto", "true", "false"] }),
+      kf("kohaku_save_merged", "Also save the merged DiT", "bool"),
+      kf("kohaku_checkpoint_export", "Export inside every checkpoint", "bool"),
+      kf("kohaku_resume", "Resume", "text", { placeholder: "latest, or a checkpoint folder", hint: "Resumes an interrupted run of the same name." }),
+      kf("kohaku_init_from", "Start from checkpoint (optional)", "path", { span: "full" }),
+    ]);
+    const logging = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_log_every", "Log every (steps)", "num", { step: 1, min: 1 }),
+      kf("kohaku_metrics_every", "Metrics every (steps)", "num", { step: 1, min: 1 }),
+      kf("kohaku_logger", "Logger", "select", { options: ["console", "wandb"] }),
+      kf("kohaku_metrics_level", "Metrics detail", "select", { options: ["train", "bench", "debug"] }),
+      kf("kohaku_run_inspect", "Print the data plan first", "bool", { hint: "Runs the trainer's inspect step (epoch size, tokens per batch, sample captions) before caching." }),
+    ]);
+
+    // ---- sampling
+    const sampling = h("div", { class: "field-grid cols-3" }, [
+      kf("kohaku_sample_every", "Sample every (steps)", "num", { step: 10, min: 0, hint: "0 = off. Sampling loads the text encoder and runs the full DiT - slow and VRAM-heavy on small cards." }),
+      kf("kohaku_sample_prompts", "Sample prompts (one per line)", "area", { span: "full", rows: 3 }),
+      kf("kohaku_sample_negative", "Negative prompt", "text", { span: "full" }),
+      kf("kohaku_sample_steps", "Sampler steps", "num", { step: 1, min: 1 }),
+      kf("kohaku_sample_cfg", "CFG", "num", { step: 0.1, min: 0 }),
+      kf("kohaku_sample_shift", "Shift", "num", { step: 0.1, min: 0 }),
+      kf("kohaku_sample_width", "Width", "num", { step: 64, min: 256 }),
+      kf("kohaku_sample_height", "Height", "num", { step: 64, min: 256 }),
+      kf("kohaku_sample_seeds", "Seeds", "text", { placeholder: "0, 1" }),
+      kf("kohaku_sample_skip_layers", "CFG skip layers", "text", { placeholder: "22" }),
+      kf("kohaku_sample_batch", "Prompts per forward", "num", { step: 1, min: 0 }),
+      kf("kohaku_sample_columns", "Sheet columns", "num", { step: 1, min: 0 }),
+      kf("kohaku_sample_at_start", "Also sample at step 0", "bool"),
+    ]);
+
+    const extra = kf("kohaku_extra_knobs", "Extra trainer knobs", "area", { span: "full", rows: 4,
+      placeholder: 'ARCH_OVERRIDES = {}\nSTREAM_LOSS = {"concentration": {"weight": 0.01, "k": 32}}',
+      hint: "Anything the fields in the other tabs do not cover: one KNOB_NAME = value per line (Python values; text in quotes). These are applied last and win over every field. Knob names are listed in kohaku_backend/scripts/train/moss.py." });
+
+    // One card per topic, spread over the tabs like the sd-scripts engine: Model / Dataset / Training / Output / Advanced.
+    kohakuParts = {
+      adapter: section("kohaku-adapter", "Adapter", "Algorithm, rank and target modules", [adapter], { open: true }),
+      optim: section("kohaku-optim", "Optimizer & schedule", "Learning rate, optimizer, warmup", [optim], { open: true }),
+      reading: wideSec(section("kohaku-data", "Dataset reading", "Captions, resolution, batching and caches",
+        [h("p", { class: "card-hint", style: "margin:0 0 8px" }, "Dataset folders and repeats are set above. Repeats become sampling weights."), data], { open: true })),
+      duration: section("kohaku-duration", "Duration", "Steps or epochs, accumulation, how often to save", [duration], { open: true }),
+      memory: section("kohaku-memory", "Memory & precision", "VRAM layer, precision, streaming",
+        [h("p", { class: "card-hint", style: "margin:0 0 8px" }, "Applies to the DiT. The text encoder and VAE only run while captions and latents are cached (offline), then are freed."), memGrid, manual], { open: true }),
+      placement: section("kohaku-placement", "Text encoder & VAE", "Where they run and how they are loaded", [placement]),
+      objective: section("kohaku-objective", "Objective", "Timestep sampling and loss", [objective], { open: true }),
+      checkpoints: section("kohaku-checkpoints", "Checkpoints", "File format, keeping, resuming", [run], { open: true }),
+      logging: section("kohaku-logging", "Logging", "Console, metrics and the data plan", [logging]),
+      sampling: wideSec(section("kohaku-sampling", "Sample images during training", "Prompts and sampler settings", [sampling])),
+      extra: section("kohaku-extra", "Extra trainer knobs", "Advanced / passthrough", [extra], { open: true }),
+    };
+
+    return section("model", "Model · MOSS-Image (Low-VRAM trainer)", "Trains the int8 files directly; streams weights on 6-12 GB cards", [files], { open: true });
   }
 
   // ------------------------------ General ------------------------------
@@ -1016,7 +1621,17 @@ const Train = (() => {
   function renderAllSections() {
     // Each panel is a two-column grid of cards; "wide" sections take the full row.
     const wide = (sec) => { sec.classList.add("wide"); return sec; };
-    const panels = {
+    const kohaku = state.model_type === "moss" && state.model.moss_engine === "kohaku";
+    const note = (text) => h("div", { class: "card", style: "padding:14px;font-size:12px;color:var(--text-dim)" }, text);
+    const modelCard = kohaku ? wide(buildModelSection()) : null;      // builds kohakuParts as a side effect
+    const kp = kohakuParts;
+    const panels = kohaku ? {
+      dataset: [buildSubsetsSection(), kp.reading],
+      model: [modelCard, kp.adapter, kp.optim],
+      training: [kp.duration, kp.memory, kp.placement, kp.objective],
+      output: [buildSavingSection(), kp.checkpoints, kp.logging, kp.sampling],
+      advanced: [kp.extra, note("Accelerate, experimental and extra sd-scripts arguments do not apply to the low-VRAM trainer. Use the extra knobs box here instead.")],
+    } : {
       dataset: [buildSubsetsSection(), buildBucketSection()],
       model: [wide(buildModelSection()), buildNetworkSection(), buildOptimizerSection()],
       training: [buildGeneralSection(), buildNoiseSection(), buildEdmSection()],
@@ -1026,7 +1641,7 @@ const Train = (() => {
     for (const [name, sections] of Object.entries(panels)) {
       const container = document.getElementById(`train-panel-${name}`);
       container.innerHTML = "";
-      if (name === "model" || name === "output") {
+      if (name === "model" || name === "output" || (kohaku && name === "training")) {
         const grid = h("div", { class: "panel-grid" });
         grid.append(...sections);
         container.append(grid);
@@ -1094,22 +1709,24 @@ const Train = (() => {
 
   async function downloadToml() {
     const ui = currentUiPayload();
-    const resp = await fetch("/api/train/download_toml", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ui),
-    });
-    if (!resp.ok) { toast("Couldn't build the config file.", "error"); return; }
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = (ui.saving.output_name || "anima_lora_config") + ".toml";
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const resp = await fetch("/api/train/download_toml", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ui),
+      });
+      if (!resp.ok) { toast("Couldn't build the config file.", "error"); return; }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (ui.saving.output_name || "anima_lora_config") + ".toml";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) { toast(err.message, "error"); }
   }
 
   async function loadTomlFile(file) {
-    const text = await file.text();
     try {
+      const text = await file.text();
       const data = await Api.parseToml(text);
       Object.keys(state).forEach((key) => delete state[key]);
       Object.assign(state, data.ui);
@@ -1162,18 +1779,22 @@ const Train = (() => {
   async function savePreset() {
     const name = prompt("Preset name:");
     if (!name) return;
-    await Api.savePreset(name, currentUiPayload());
-    toast(`Saved preset "${name}".`, "success");
-    await refreshPresetList();
+    try {
+      await Api.savePreset(name, currentUiPayload());
+      toast(`Saved preset "${name}".`, "success");
+      await refreshPresetList();
+    } catch (err) { toast(err.message, "error"); }
   }
 
   async function loadPresetByName(name) {
     if (!name) return;
-    const ui = await Api.loadPreset(name);
-    Object.assign(state, ui);
-    renderAllSections();
-    await refreshPreview();
-    toast(`Loaded preset "${name}".`, "success");
+    try {
+      const ui = await Api.loadPreset(name);
+      Object.assign(state, ui);
+      renderAllSections();
+      await refreshPreview();
+      toast(`Loaded preset "${name}".`, "success");
+    } catch (err) { toast(err.message, "error"); }
   }
 
   // --- Backend control ---
@@ -1276,7 +1897,7 @@ const Train = (() => {
 
   // --- Always-visible training bar ---
   // One polling loop (any tab) drives the bar, the Queue tab and its badge.
-  const dock = { timer: null, busy: false, samples: [], lastStep: -1, seenSince: null, queue: null, reachable: null, live: false };
+  const dock = { timer: null, busy: false, seenSince: null, queue: null, reachable: null, live: false };
 
   function dockKick() {
     if (dock.timer) clearTimeout(dock.timer);
@@ -1297,18 +1918,9 @@ const Train = (() => {
     dock.timer = setTimeout(dockTick, wait);
   }
 
-  function dockEta(step, total) {
-    const now = Date.now() / 1000;
-    if (step < dock.lastStep) dock.samples = [];            // new run
-    dock.lastStep = step;
-    const last = dock.samples[dock.samples.length - 1];
-    if (!last || step !== last.step) dock.samples.push({ t: now, step });
-    dock.samples = dock.samples.filter((x) => now - x.t < 180).slice(-12);
-    if (dock.samples.length < 2) return null;
-    const first = dock.samples[0], end = dock.samples[dock.samples.length - 1];
-    const rate = (end.step - first.step) / Math.max(1e-6, end.t - first.t);  // steps / second
-    return rate > 0 ? (total - step) / rate : null;
-  }
+  // Self-correcting ETA: the estimator itself lives in ui.js so that the
+  // Monitor tab can show the same number.
+  const runEta = createEtaEstimator();
 
   function renderDock(status, prog) {
     const el = document.getElementById("train-dock");
@@ -1343,7 +1955,7 @@ const Train = (() => {
       showTrainError("Training failed", p.error_detail || "The trainer stopped with an error.", p.log_tail || []);
     }
     if (!live) {
-      dock.samples = []; dock.lastStep = -1; dock.seenSince = null;
+      runEta.reset(); dock.seenSince = null;
       const text = dock.reachable === false ? "Backend not reachable"
         : status && status.errored ? "Last run failed - details above"
         : "Backend connected · idle";
@@ -1370,9 +1982,15 @@ const Train = (() => {
       if (p.epoch) bits.push(`epoch ${p.epoch}${p.max_epoch ? "/" + p.max_epoch : ""}`);
       if (p.loss != null) bits.push(`loss ${Number(p.loss).toFixed(4)}`);
       stats = `${bits.join(" · ")} · ${pct.toFixed(0)}%`;
-      const eta = dockEta(step, total);
+      const eta = runEta.update(step, total);
       sub.push(`elapsed ${fmtDuration(elapsed)}`);
-      sub.push(eta != null ? `~${fmtDuration(eta)} remaining` : "estimating time remaining…");
+      if (eta && eta.stalled) {
+        sub.push(`no progress for ${fmtDuration(now - eta.stallSince)} - saving a checkpoint?`);
+      } else if (eta) {
+        sub.push(`~${fmtDuration(eta.seconds)} remaining · ${eta.rate.toFixed(2)} it/s`);
+      } else {
+        sub.push("estimating time remaining…");
+      }
     } else {
       fill.classList.add("indeterminate");
       fill.style.width = "";
@@ -1402,16 +2020,118 @@ const Train = (() => {
     dockKick();
   }
 
+  // --- GPU health read-out ---
+  // nvidia-smi through the app's own process: no torch, no extra packages. One
+  // poll feeds both read-outs: the strip at the top of the Monitor tab, and -
+  // only while a run is actually live - a condensed copy on the training bar,
+  // where VRAM and temperature are the things you want to watch while training.
+  // It lives here with the dock code because the bar's copy needs the dock's
+  // live state; keeping one poller means nvidia-smi is asked once per tick.
+  let gpuTimer = null;
+
+  function gpuState(g) {
+    if (g.temp_c != null && g.temp_c >= 85) return "hot";
+    return g.util_pct != null && g.util_pct > 5 ? "active" : "idle";
+  }
+
+  function gpuBarColour(pct) {
+    return pct >= 92 ? "var(--danger)" : pct >= 75 ? "var(--warn, #c9a227)" : "var(--accent)";
+  }
+
+  function gpuFirst(data) {
+    return data && data.available ? (data.gpus || [])[0] || null : null;
+  }
+
+  function paintGpuBar(el, pct) {
+    const pctClamped = Math.min(100, Math.max(0, pct ?? 0));
+    el.style.width = `${pctClamped}%`;
+    el.style.background = gpuBarColour(pctClamped);
+  }
+
+  function renderGpuStrip(data) {
+    const strip = document.getElementById("gpu-strip");
+    if (!strip) return;
+    const g = gpuFirst(data);
+    if (!g) { strip.hidden = true; return; }
+    strip.hidden = false;
+    strip.dataset.state = gpuState(g);
+    document.getElementById("gpu-strip-name").textContent =
+      data.gpus.length > 1 ? `${g.name} +${data.gpus.length - 1}` : g.name;
+
+    const gb = (mb) => (mb == null ? "?" : (mb / 1024).toFixed(1));
+    document.getElementById("gpu-strip-vram").textContent =
+      g.mem_total_mb != null ? `VRAM ${gb(g.mem_used_mb)} / ${gb(g.mem_total_mb)} GB` : "";
+    paintGpuBar(document.getElementById("gpu-strip-bar"), g.mem_pct);
+    document.getElementById("gpu-strip-util").textContent =
+      g.util_pct != null ? `${Math.round(g.util_pct)}% util` : "";
+    document.getElementById("gpu-strip-temp").textContent =
+      g.temp_c != null ? `${Math.round(g.temp_c)}°C` : "";
+    document.getElementById("gpu-strip-power").textContent =
+      g.power_w != null ? `${Math.round(g.power_w)}${g.power_limit_w ? `/${Math.round(g.power_limit_w)}` : ""} W` : "";
+    document.getElementById("gpu-strip-note").textContent =
+      g.fan_pct != null ? `fan ${Math.round(g.fan_pct)}%` : "";
+  }
+
+  function renderDockGpu(data) {
+    const chip = document.getElementById("dock-gpu");
+    if (!chip) return;
+    const g = gpuFirst(data);
+    if (!g) { chip.hidden = true; return; }
+    chip.hidden = false;
+    chip.dataset.state = gpuState(g);
+
+    const gb = (mb) => (mb == null ? "?" : (mb / 1024).toFixed(1));
+    document.getElementById("dock-gpu-util").textContent =
+      g.util_pct != null ? `${Math.round(g.util_pct)}%` : "";
+    document.getElementById("dock-gpu-mem").textContent =
+      g.mem_total_mb != null ? `${gb(g.mem_used_mb)}/${gb(g.mem_total_mb)} GB` : "";
+    document.getElementById("dock-gpu-temp").textContent =
+      g.temp_c != null ? `${Math.round(g.temp_c)}°C` : "";
+    paintGpuBar(document.getElementById("dock-gpu-bar"), g.mem_pct);
+    chip.title = `${g.name} - utilisation, VRAM in use and temperature`;
+  }
+
+  async function refreshGpu() {
+    let data = null;
+    try { data = await Api.monitorGpu(); } catch { data = null; }
+    renderGpuStrip(data);
+    renderDockGpu(data);
+  }
+
+  // Only ask when one of the two read-outs is actually on screen: the strip needs
+  // the Monitor tab, and the bar's copy only exists while a run is live.
+  function gpuWanted() {
+    if (document.hidden) return false;
+    if (dock.live) return true;
+    const monitor = document.getElementById("view-monitor");
+    return !!(monitor && monitor.classList.contains("active"));
+  }
+
+  function scheduleGpu(delay) {
+    if (gpuTimer) clearTimeout(gpuTimer);
+    gpuTimer = setTimeout(() => {
+      if (gpuWanted()) refreshGpu();
+      scheduleGpu(dock.live ? 3000 : 5000);
+    }, delay == null ? (dock.live ? 3000 : 5000) : delay);
+  }
+
+  function initGpuReadout() {
+    if (gpuWanted()) refreshGpu();
+    scheduleGpu(1500);
+    // coming back to the window should not wait for the next tick to show it
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refreshGpu();
+    });
+    // nor should switching to the Monitor tab, where the full strip lives
+    document.addEventListener("studio:viewchange", (e) => {
+      if (e.detail && e.detail.view === "monitor") refreshGpu();
+    });
+  }
+
   // --- Training queue ---
 
   const QUEUE_LABEL = { queued: "Waiting", running: "Training", done: "Done", error: "Failed", cancelled: "Cancelled" };
   let queueBusy = false;
-
-  function fmtDuration(sec) {
-    sec = Math.max(0, Math.round(sec));
-    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
-    return h ? `${h}h ${m}m` : m ? `${m}m ${sec % 60}s` : `${sec}s`;
-  }
 
   async function addToQueue(nameOverride) {
     const url = document.getElementById("backend-url").value.trim();
@@ -1546,7 +2266,7 @@ const Train = (() => {
 
   function pollLauncherStatus() {
     if (launcherStatusTimer) clearInterval(launcherStatusTimer);
-    launcherStatusTimer = setInterval(refreshLauncherStatus, 2500);
+    launcherStatusTimer = visibleInterval(refreshLauncherStatus, 2500);
   }
 
   async function launchBackend() {
@@ -1585,6 +2305,50 @@ const Train = (() => {
     } catch { /* saved opportunistically - not worth interrupting the user over */ }
   }
 
+  // --- Backend integrity check -------------------------------------------
+  // The interesting failures here are partial ones (a venv whose PyTorch never
+  // finished, a CUDA build that cannot see the card), so the results are shown
+  // as a checklist with a suggested fix per row rather than one pass/fail.
+  const VERIFY_ICON = { ok: "✓", warn: "!", fail: "✕" };
+
+  function renderVerifyResults(data) {
+    const box = document.getElementById("backend-verify-results");
+    const summary = document.getElementById("backend-verify-summary");
+    box.replaceChildren(...(data.checks || []).map((c) => h("div", { class: "verify-row", "data-status": c.status }, [
+      h("span", { class: "verify-icon" }, VERIFY_ICON[c.status] || "?"),
+      h("div", { class: "verify-body" }, [
+        h("b", {}, c.label),
+        c.detail ? h("small", {}, c.detail) : null,
+        c.fix ? h("small", { class: "verify-fix" }, c.fix) : null,
+      ]),
+    ])));
+    box.style.display = "block";
+    const warnings = data.warned || 0;
+    summary.textContent = data.ok
+      ? (warnings ? `Everything needed is in place (${warnings} warning${warnings === 1 ? "" : "s"})` : "Everything needed is in place.")
+      : `${data.failed} problem${data.failed === 1 ? "" : "s"} would stop training`;
+    summary.style.color = data.ok ? "" : "var(--danger)";
+  }
+
+  async function runBackendVerify() {
+    const btn = document.getElementById("backend-verify-btn");
+    const spinner = document.getElementById("backend-verify-spinner");
+    const summary = document.getElementById("backend-verify-summary");
+    btn.disabled = true;
+    spinner.style.display = "inline-block";
+    summary.textContent = "Checking the environment…";
+    summary.style.color = "";
+    try {
+      renderVerifyResults(await Api.backendVerify());
+    } catch (err) {
+      summary.textContent = err.message || "The check could not run.";
+      summary.style.color = "var(--danger)";
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = "none";
+    }
+  }
+
   async function initLauncher() {
     try {
       const settings = await Api.backendProcessSettings();
@@ -1606,6 +2370,7 @@ const Train = (() => {
     document.getElementById("backend-launch-autostart").addEventListener("change", saveLauncherSettingsFromForm);
     document.getElementById("backend-launch-command").addEventListener("change", saveLauncherSettingsFromForm);
     document.getElementById("backend-launch-dir").addEventListener("change", saveLauncherSettingsFromForm);
+    document.getElementById("backend-verify-btn").addEventListener("click", runBackendVerify);
   }
 
   // --- In-app backend installer (clone + run installer, streamed) ---
@@ -1672,7 +2437,7 @@ const Train = (() => {
 
   function pollSetupStatus() {
     if (setupStatusTimer) clearInterval(setupStatusTimer);
-    setupStatusTimer = setInterval(refreshSetupStatus, 1500);
+    setupStatusTimer = visibleInterval(refreshSetupStatus, 1500);
   }
 
   async function startBackendSetup() {
@@ -1703,7 +2468,7 @@ const Train = (() => {
       renderSetupStatus(s);
       document.getElementById("backend-setup-target-label").textContent =
         s.bundled ? `Installing into: ${s.bundled_dir}` : "Bundled backend folder not found.";
-      document.getElementById("backend-setup-start").disabled = !s.bundled;
+      document.getElementById("backend-setup-start").disabled = !s.bundled || s.stage === "installing";
       if (s.stage === "installing") pollSetupStatus();
     }
 
@@ -1715,11 +2480,15 @@ const Train = (() => {
   }
 
   async function init() {
-    schemaData = await Api.trainSchema();
-    renderAllSections();
-    initSubtabs();
-    await refreshPreview();
-    await refreshPresetList();
+    // Best-effort warm-ups: a failed fetch here must not leave the rest of
+    // the tab (buttons, queue, dock, GPU readout, setup) unwired.
+    try {
+      schemaData = await Api.trainSchema();
+      renderAllSections();
+      initSubtabs();
+      await refreshPreview();
+    } catch (err) { toast(err.message, "error"); }
+    try { await refreshPresetList(); } catch (err) { toast(err.message, "error"); }
 
     document.getElementById("preview-refresh-btn").addEventListener("click", refreshPreview);
     document.getElementById("download-toml-btn").addEventListener("click", downloadToml);
@@ -1740,6 +2509,7 @@ const Train = (() => {
     document.getElementById("stop-training-btn").addEventListener("click", stopTraining);
     initQueue();
     initDock();
+    initGpuReadout();
     await initSetup();
     await initLauncher();
   }

@@ -57,7 +57,9 @@ const Theme = (() => {
   }
 
   function save(bgHex, accentHex) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ bg: bgHex, accent: accentHex }));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ bg: bgHex, accent: accentHex }));
+    } catch { /* storage full/blocked: keep the theme for this session */ }
   }
 
   function load() {

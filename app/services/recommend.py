@@ -120,7 +120,141 @@ _SDXL_PRESETS = {
     },
 }
 
-PRESETS = {"anima": _ANIMA_PRESETS, "sdxl": _SDXL_PRESETS}
+def _moss_presets() -> dict:
+    """MOSS-Image LoRA starting points: the Anima ones (both are rectified-flow DiTs trained with AdamW
+    LoRA at 1024 px) relabelled. Hardware settings come from MOSS_VRAM_PROFILES, not from here."""
+    out = {}
+    for key, block in _ANIMA_PRESETS.items():
+        if key == "strong_character":
+            continue                                    # Prodigy-based; not validated on MOSS-Image
+        b = {k: (dict(v) if isinstance(v, dict) else v) for k, v in block.items()}
+        b["label"] = block["label"].replace("Anima", "MOSS-Image")
+        out[key] = b
+    return out
+
+
+# What each memory budget needs to train the FULL bf16 MOSS-Image DiT (5B, ~10.2 GB of block weights).
+# Block swap parks N of the 42 blocks (~0.23 GB each) in system RAM and streams them in per step, so VRAM
+# falls roughly 0.23 GB per swapped block and speed falls with it. The 9B text encoder is only needed while
+# captions are cached: "offload" keeps exact bf16 weights, streaming the layers that do not fit.
+MOSS_VRAM_PROFILES = {
+    "8": {
+        "label": "8 GB · full bf16 (block swap 36)", "min_vram_gb": 8, "min_ram_gb": 32,
+        "model": {"moss_blocks_to_swap": 36, "moss_int8": "off", "moss_compile": "none",
+                  "moss_attn_backend": "auto", "moss_te_mode": "offload", "moss_te_gpu_gb": 6.0,
+                  "moss_unchecked_blocks": 0},
+        "general": {"gradient_checkpointing": True, "batch_size": 1, "cache_latents": True},
+        "note": "~6 GB peak at 1024 px. Slowest profile; needs about 32 GB of system RAM (blocks and text encoder "
+                "live there). Raise Blocks to swap to 40 if you still run out of memory, or train at 768 px.",
+    },
+    "10": {
+        "label": "10 GB · full bf16 (block swap 30)", "min_vram_gb": 10, "min_ram_gb": 32,
+        "model": {"moss_blocks_to_swap": 30, "moss_int8": "off", "moss_compile": "none",
+                  "moss_attn_backend": "auto", "moss_te_mode": "offload", "moss_te_gpu_gb": 7.5,
+                  "moss_unchecked_blocks": 0},
+        "general": {"gradient_checkpointing": True, "batch_size": 1, "cache_latents": True},
+        "note": "~7 GB peak at 1024 px, leaving ~3 GB of headroom for the desktop and spikes. About 30% faster "
+                "than the 8 GB profile; needs about 32 GB of system RAM. Drop Blocks to swap to 26 for more "
+                "speed if you have the room, or raise it to 34 if you run out of memory.",
+    },
+    "10-int8": {
+        "label": "10 GB · INT8 base (no swap, faster, not pure bf16)", "min_vram_gb": 10, "min_ram_gb": 24,
+        "model": {"moss_blocks_to_swap": 0, "moss_int8": "on", "moss_compile": "none",
+                  "moss_attn_backend": "auto", "moss_te_mode": "offload", "moss_te_gpu_gb": 7.5,
+                  "moss_unchecked_blocks": 0},
+        "general": {"gradient_checkpointing": True, "batch_size": 1, "cache_latents": True},
+        "note": "The bf16 DiT is loaded on the CPU and quantized block by block on the GPU, so the card only ever holds "
+                "the int8 weights (~5 GB). The LoRA learns against an INT8 copy of the base. Faster than block swap. "
+                "Set Compile = blocks for a further ~25% if Visual Studio Build Tools are installed (needed on Windows).",
+    },
+    "12": {
+        "label": "12 GB · full bf16 (block swap 24)", "min_vram_gb": 12, "min_ram_gb": 32,
+        "model": {"moss_blocks_to_swap": 24, "moss_int8": "off", "moss_compile": "none",
+                  "moss_attn_backend": "auto", "moss_te_mode": "offload", "moss_te_gpu_gb": 9.0,
+                  "moss_unchecked_blocks": 0},
+        "general": {"gradient_checkpointing": True, "batch_size": 1, "cache_latents": True},
+        "note": "~8 GB peak at 1024 px.",
+    },
+    "16": {
+        "label": "16 GB · full bf16 (block swap 12)", "min_vram_gb": 16, "min_ram_gb": 32,
+        "model": {"moss_blocks_to_swap": 12, "moss_int8": "off", "moss_compile": "none",
+                  "moss_attn_backend": "auto", "moss_te_mode": "offload", "moss_te_gpu_gb": 13.0,
+                  "moss_unchecked_blocks": 0},
+        "general": {"gradient_checkpointing": True, "batch_size": 1, "cache_latents": True},
+        "note": "~11 GB peak at 1024 px.",
+    },
+    "24": {
+        "label": "24 GB · full bf16, no swap", "min_vram_gb": 24, "min_ram_gb": 24,
+        "model": {"moss_blocks_to_swap": 0, "moss_int8": "off", "moss_compile": "blocks",
+                  "moss_attn_backend": "cudnn", "moss_te_mode": "full", "moss_unchecked_blocks": 0},
+        "general": {"gradient_checkpointing": True, "batch_size": 1, "cache_latents": True},
+        "note": "13 GB peak at 1024 px (12 GB with Compile = blocks). The fork's reference setup: 1.4 s per 1024 px image on an RTX 4090.",
+    },
+    "24-fast": {
+        "label": "24 GB · INT8 base (fastest, not pure bf16)", "min_vram_gb": 12, "min_ram_gb": 24,
+        "model": {"moss_blocks_to_swap": 0, "moss_int8": "on", "moss_compile": "blocks",
+                  "moss_attn_backend": "cudnn", "moss_te_mode": "full", "moss_unchecked_blocks": 0},
+        "general": {"gradient_checkpointing": True, "batch_size": 1, "cache_latents": True},
+        "note": "The LoRA learns against an INT8-quantised copy of the base (7.5 GB peak, ~1.2 s per image on an "
+                "RTX 4090). Not compatible with block swap.",
+    },
+}
+
+
+def moss_profile_for(vram_gb: float | None) -> str:
+    """The largest profile that fits `vram_gb` (the smallest one when unknown)."""
+    if not vram_gb:
+        return "8"
+    fit = [k for k in ("8", "10", "12", "16", "24") if MOSS_VRAM_PROFILES[k]["min_vram_gb"] <= vram_gb + 0.6]
+    return fit[-1] if fit else "8"
+
+
+# KohakuMoss VRAM profiles: the preset layers under kohaku_backend/configs/moss/vram/ (tests/test_kohaku.py keeps this
+# table equal to the layer files). A card selects the largest layer it holds within 5 % of the layer's size - a 10 GB
+# card gets the 8 GB layer. The keys are the Train tab's `kohaku_*` fields; "" means "not set by this layer".
+def _kp(label, min_gb, profile, tokens, te, vae, minutes, note):
+    m = {"kohaku_memory_profile": profile, "kohaku_max_tokens": tokens,
+         "kohaku_te_memory": te.get("memory", ""), "kohaku_te_ahead": te.get("ahead", ""),
+         "kohaku_te_batch": te.get("batch", ""), "kohaku_te_max_tokens": te.get("max_tokens", ""),
+         "kohaku_vae_memory": vae.get("memory", ""), "kohaku_vae_ahead": vae.get("ahead", ""),
+         "kohaku_vae_tile": {True: "true", False: "false"}.get(vae.get("tile"), ""),
+         "kohaku_save_minutes": minutes}
+    return {"label": label, "min_vram_gb": min_gb, "model": m, "note": note}
+
+
+KOHAKU_VRAM_PROFILES = {
+    "6": _kp("6 GB · streamed weights, host optimizer", 6, "ckpt-ring2-actoff-optcpu-gradoff", 4352,
+             {"memory": "ring", "ahead": 4}, {}, 30,
+             "Two resident blocks, activation and gradient offload, the AdamW update on the host. Text and latent "
+             "caches are built offline first, so the card only holds the backbone while training."),
+    "8": _kp("8 GB · minimal (also the pick for a 10 GB card)", 8, "minimal", 4352,
+             {"memory": "ring", "ahead": 8, "batch": 16, "max_tokens": 8192},
+             {"memory": "offload", "ahead": 8, "tile": True}, 30,
+             "The low-VRAM trainer's 8 GB layer is checked with the allocator capped at 8 GB, so it should not spill into shared "
+             "memory. Needs about 32 GB of system RAM while the model loads and about 19 GB during the steps."),
+    "12": _kp("12 GB · four streamed blocks", 12, "ckpt-ring4-actoff-optstream-gradoff", 6144,
+              {"memory": "ring", "ahead": 4, "batch": 16, "max_tokens": 8192}, {"memory": "offload", "ahead": 4}, "",
+              "Faster than the 8 GB layer. On a 10 GB card try it only if Task Manager shows no shared-memory use."),
+    "16": _kp("16 GB · low", 16, "low", 8192, {"memory": "ring", "ahead": 4}, {}, "",
+              "Block checkpointing, four resident streamed blocks, activation offload."),
+    "24": _kp("24 GB · balanced", 24, "balanced", 12288, {"memory": "ring", "ahead": 8}, {}, "",
+              "Block checkpointing with 16 resident streamed blocks."),
+    "auto": _kp("Auto · the planner picks", 0, "auto", "", {"memory": "auto", "ahead": 4}, {"memory": "auto"}, "",
+                "The low-VRAM trainer picks the fastest profile whose memory estimate fits the card (any size)."),
+}
+
+
+def kohaku_profile_for(vram_gb: float | None) -> str:
+    """The low-VRAM trainer's own rule: the largest layer the card holds within 5 % of its size; above 24 GB, auto."""
+    if not vram_gb:
+        return "8"
+    if vram_gb > 24:
+        return "auto"
+    fit = [k for k in ("6", "8", "12", "16", "24") if vram_gb >= KOHAKU_VRAM_PROFILES[k]["min_vram_gb"] * 0.95]
+    return fit[-1] if fit else "6"
+
+
+PRESETS = {"anima": _ANIMA_PRESETS, "sdxl": _SDXL_PRESETS, "moss": _moss_presets()}
 
 
 def presets(model_type: str | None = None) -> dict:
@@ -186,6 +320,8 @@ def recommend(model_type: str, image_count: int, project_type: str,
             batch_size, grad_accum = 2, 2
         elif vram_gb < 8:
             resolution = 768
+        if model_type == "moss":
+            batch_size, grad_accum = 1, 4               # swapped blocks make every step slow; accumulate instead
 
     calc = calculator.calculate(
         images=image_count, repeats=repeats, epochs=1,

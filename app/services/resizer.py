@@ -42,6 +42,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from .imaging import is_backup_file
+
 from PIL import Image
 
 OUTPUT_FOLDER_NAME = "resized images"
@@ -74,17 +76,23 @@ def _set(**kwargs) -> None:
 
 
 def start(folder: str, resolutions: list[int]) -> dict:
-    if is_busy():
-        raise ResizeError("A resize job is already running - wait for it to finish.")
     base = Path(folder)
     if not base.exists() or not base.is_dir():
         raise ResizeError(f"Not a directory: {folder}")
 
-    clean_resolutions = sorted({int(r) for r in resolutions if int(r) > 0})
+    try:
+        clean_resolutions = sorted({int(r) for r in resolutions if int(r) > 0})
+    except (TypeError, ValueError):
+        clean_resolutions = []
     if not clean_resolutions:
         raise ResizeError("Choose at least one resolution.")
 
-    _set(stage="running", done=0, total=0, errors=[], folder=str(base))
+    # Claim the slot under the same lock status() reads under: two quick
+    # requests must not both pass an is_busy() check and start two jobs.
+    with _lock:
+        if _status["stage"] == "running":
+            raise ResizeError("A resize job is already running - wait for it to finish.")
+        _status.update(stage="running", done=0, total=0, errors=[], folder=str(base))
     threading.Thread(target=_run, args=(base, clean_resolutions), daemon=True).start()
     return status()
 
@@ -96,8 +104,10 @@ def _find_images(base: Path) -> list[Path]:
         # re-running this doesn't reprocess its own output.
         dirs[:] = [d for d in dirs if d.lower() not in _SKIP_DIRS]
         for fname in files:
-            if Path(fname).suffix.lower() in _VALID_EXTENSIONS:
-                found.append(Path(root) / fname)
+            f = Path(root) / fname
+            # magic-eraser .orig backups are not dataset images
+            if f.suffix.lower() in _VALID_EXTENSIONS and not is_backup_file(f):
+                found.append(f)
     return found
 
 

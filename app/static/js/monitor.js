@@ -7,6 +7,7 @@ const Monitor = (() => {
   let lastRun = null;      // id of the run currently drawn
   let startWatch = null;
   let staleRun = null;     // previous run, ignored right after "Start training"
+  const monitorEta = createEtaEstimator();
 
   function init() {
     // Prefill from whatever the Train tab currently has configured, if anything.
@@ -16,10 +17,10 @@ const Monitor = (() => {
     if (!loggingInput.value && Train.state.logging.logging_dir) loggingInput.value = Train.state.logging.logging_dir;
 
     document.getElementById("monitor-browse-output").addEventListener("click", () => {
-      FolderBrowser.open(outputInput.value || null, (path) => { outputInput.value = path; refreshAll(); });
+      FolderBrowser.open(outputInput.value || null, (path) => { outputInput.value = path; outputInput.dispatchEvent(new Event("change", { bubbles: true })); });
     });
     document.getElementById("monitor-browse-logging").addEventListener("click", () => {
-      FolderBrowser.open(loggingInput.value || null, (path) => { loggingInput.value = path; refreshAll(); });
+      FolderBrowser.open(loggingInput.value || null, (path) => { loggingInput.value = path; loggingInput.dispatchEvent(new Event("change", { bubbles: true })); });
     });
     document.getElementById("monitor-refresh-btn").addEventListener("click", refreshAll);
     outputInput.addEventListener("change", refreshAll);
@@ -52,7 +53,7 @@ const Monitor = (() => {
       empty.textContent = "New run starting - charts appear once it logs its first steps.";
       let n = 0;
       clearInterval(startWatch);
-      startWatch = setInterval(() => {
+      startWatch = visibleInterval(() => {
         refreshAll();
         if (++n >= 30 || lastRun) clearInterval(startWatch);
       }, 4000);
@@ -78,7 +79,7 @@ const Monitor = (() => {
 
   function startAutoRefresh() {
     stopAutoRefresh();
-    autoRefreshTimer = setInterval(refreshAll, 6000);
+    autoRefreshTimer = visibleInterval(refreshAll, 6000);
   }
 
   function stopAutoRefresh() {
@@ -86,8 +87,15 @@ const Monitor = (() => {
     autoRefreshTimer = null;
   }
 
+  let refreshing = false;
   async function refreshAll() {
-    await Promise.all([refreshStatus(), refreshProgress(), refreshSamples(), refreshCheckpoints(), refreshScalars()]);
+    if (refreshing) return;           // a slow poll must not stack another batch
+    refreshing = true;
+    try {
+      await Promise.all([refreshStatus(), refreshProgress(), refreshSamples(), refreshCheckpoints(), refreshScalars()]);
+    } finally {
+      refreshing = false;
+    }
   }
 
   async function refreshStatus() {
@@ -127,6 +135,15 @@ const Monitor = (() => {
         typeof p.loss === "number" ? `loss ${p.loss.toFixed(4)}` : "";
       const pct = p.total_steps ? Math.min(100, Math.round((p.step / p.total_steps) * 100)) : 0;
       document.getElementById("monitor-progress-fill").style.width = `${pct}%`;
+      const etaEl = document.getElementById("monitor-progress-eta");
+      const eta = (p.training === false) ? null : monitorEta.update(p.step, p.total_steps || 0);
+      if (!eta) {
+        etaEl.textContent = p.training === false ? "" : "estimating time remaining…";
+      } else if (eta.stalled) {
+        etaEl.textContent = `no progress for ${fmtDuration(Date.now() / 1000 - eta.stallSince)} - saving a checkpoint?`;
+      } else {
+        etaEl.textContent = `${eta.rate.toFixed(2)} it/s · ~${fmtDuration(eta.seconds)} remaining`;
+      }
     } catch {
       row.style.display = "none";
     }

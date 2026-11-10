@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -26,11 +27,16 @@ from .. import config
 from . import settings_store
 
 PROJECT_TYPES = ("character", "outfit", "style", "concept", "object", "other")
-MODEL_TYPES = ("anima", "sdxl")
+MODEL_TYPES = ("anima", "sdxl", "moss")
 
 LAYOUT_DIRS = ("dataset", "output")
 LEGACY_OUTPUT_DIRS = ("samples", "exports", "checkpoints")
 MANIFEST_NAME = "project.json"
+
+# Manifest read-modify-writes run under this lock and land via
+# write-to-temp + replace: two saves at once must not drop fields or
+# truncate the file.
+_lock = threading.Lock()
 
 
 class ProjectError(RuntimeError):
@@ -60,6 +66,8 @@ def _read_manifest(project_dir: Path) -> dict:
         data = json.loads(p.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         raise ProjectError(f"Couldn't read project manifest: {exc}")
+    if not isinstance(data, dict):
+        raise ProjectError(f"Project manifest isn't an object: {project_dir}")
     data["id"] = project_dir.name
     data["path"] = str(project_dir)
     linked = str(data.get("dataset_path") or "").strip()
@@ -169,6 +177,11 @@ def load_project(project_id: str) -> dict:
 
 
 def _write(project_id: str, _keep_modified: bool = False, **fields) -> dict:
+    with _lock:
+        return _write_locked(project_id, _keep_modified, **fields)
+
+
+def _write_locked(project_id: str, _keep_modified: bool = False, **fields) -> dict:
     project_dir = _project_dir(project_id)
     data = _read_manifest(project_dir)
     for key in ("id", "path", "dataset_dir", "output_dir"):
@@ -193,7 +206,14 @@ def _write(project_id: str, _keep_modified: bool = False, **fields) -> dict:
         data[key] = value
     if not _keep_modified:
         data["modified"] = time.time()
-    _manifest_path(project_dir).write_text(json.dumps(data, indent=2), encoding="utf-8")
+    path = _manifest_path(project_dir)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    try:
+        tmp.replace(path)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        raise
     return _read_manifest(project_dir)
 
 
@@ -205,7 +225,10 @@ def delete_project(project_id: str) -> dict:
     project_dir = _project_dir(project_id)
     name = _read_manifest(project_dir).get("name", project_id)
     import shutil
-    shutil.rmtree(project_dir)
+    try:
+        shutil.rmtree(project_dir)
+    except OSError as exc:
+        raise ProjectError(f"Couldn't delete the project folder (is a file still open?): {exc}") from exc
     return {"deleted": project_id, "name": name}
 
 

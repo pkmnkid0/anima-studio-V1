@@ -231,19 +231,43 @@ _host_last: dict[str, float] = {}
 _MIN_GAP = 0.12
 
 
-def _session() -> requests.Session:
-    s = requests.Session()
-    retry = Retry(total=1, connect=1, read=1, status=1, backoff_factor=0.5,
-                  status_forcelist=(429, 500, 502, 503, 504),
-                  allowed_methods=frozenset({"GET"}), raise_on_status=False)
-    adapter = HTTPAdapter(max_retries=retry, pool_connections=16, pool_maxsize=16)
-    s.mount("https://", adapter)
-    s.mount("http://", adapter)
-    s.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json,text/html;q=0.8,*/*;q=0.5"})
-    px = get_proxy()
-    if px:
-        s.proxies.update({"http": px, "https": px})
-    return s
+class _SharedSession(requests.Session):
+    """A Session that survives close().
+
+    Sessions used to be built and closed per call, so every search, tag lookup
+    and thumbnail paid a fresh TCP + TLS handshake. They are now kept for the
+    life of the process and reused; close() is deliberately a no-op so the
+    existing per-call cleanup calls can't tear down a pool other requests are
+    still using. Changing the proxy setting simply builds a new one."""
+
+    def close(self) -> None:
+        pass                          # deliberate no-op - see the class docstring
+
+
+_sessions: dict[tuple[str, str], requests.Session] = {}
+_sessions_lock = threading.Lock()
+
+
+def _session(source: str = "", proxy: str | None = None) -> requests.Session:
+    """One warm Session per (source, proxy), so connections get reused between
+    requests (a per-source key keeps per-site headers and cookies separate)."""
+    px = get_proxy() if proxy is None else proxy
+    key = (source, px)
+    with _sessions_lock:
+        s = _sessions.get(key)
+        if s is None:
+            s = _SharedSession()
+            retry = Retry(total=1, connect=1, read=1, status=1, backoff_factor=0.5,
+                          status_forcelist=(429, 500, 502, 503, 504),
+                          allowed_methods=frozenset({"GET"}), raise_on_status=False)
+            adapter = netbypass.BypassAdapter(max_retries=retry, pool_connections=16, pool_maxsize=16)
+            s.mount("https://", adapter)
+            s.mount("http://", adapter)
+            s.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json,text/html;q=0.8,*/*;q=0.5"})
+            if px:
+                s.proxies.update({"http": px, "https": px})
+            _sessions[key] = s
+        return s
 
 
 netbypass.install(lambda h: is_booru_host(h))   # secure-DNS fallback for booru hosts (see netbypass.py)
@@ -284,19 +308,17 @@ def probe_sources(ids: list[str] | None = None, seconds: float = 9.0) -> list[di
     def one(sid):
         d = SOURCES[sid]
         t0 = time.monotonic()
-        sess = _session()
-        sess.headers.update({"User-Agent": BROWSER_UA, "Referer": d["base"] + "/"})
+        sess = _session(f"probe:{sid}")
         url, params, kind = probe_request(sid)
         try:
-            r = sess.get(url, params=params, timeout=(5, 7))
+            r = sess.get(url, params=params, timeout=(5, 7),
+                         headers={"User-Agent": BROWSER_UA, "Referer": d["base"] + "/"})
             r.raise_for_status()
             if kind == "json":
                 r.json()  # must really be the API, not a block/captcha page
             return {"id": sid, "name": d["name"], "ok": True, "ms": int((time.monotonic() - t0) * 1000), "error": ""}
         except (requests.exceptions.RequestException, ValueError) as exc:
             return {"id": sid, "name": d["name"], "ok": False, "ms": None, "error": str(_friendly(exc, d["name"]))}
-        finally:
-            sess.close()
 
     pool = ThreadPoolExecutor(max_workers=10)
     futs = {sid: pool.submit(one, sid) for sid in ids}
@@ -447,7 +469,7 @@ def open_image(url: str, referer: str = "", proxy: str = "", timeout=(8, 25), st
     User-Agent first (what has always worked), then a browser User-Agent, then no
     Referer, then alternative spellings of the URL. Returns the first HTTP 200 response
     (caller must close it), or the last non-200 response. Network errors propagate."""
-    proxies = {"http": proxy, "https": proxy} if proxy else None
+    session = _session("images", proxy)
     ref = referer or _site_root(url)
     attempts = [(url, USER_AGENT, ref), (url, BROWSER_UA, ref), (url, BROWSER_UA, None), (url, BROWSER_UA, _site_root(url))]
     attempts += [(u, BROWSER_UA, ref) for u in _image_variants(url)]
@@ -467,7 +489,7 @@ def open_image(url: str, referer: str = "", proxy: str = "", timeout=(8, 25), st
             except Exception:  # noqa: BLE001
                 pass
         try:
-            last = requests.get(u, headers=hdrs, timeout=timeout, stream=stream, proxies=proxies)
+            last = session.get(u, headers=hdrs, timeout=timeout, stream=stream)
         except requests.exceptions.RequestException:
             if i == 0:
                 raise            # unreachable host: more attempts would only repeat the wait
@@ -902,7 +924,7 @@ def fetch_posts(source: str, tags: str = "", rating: str = "safe", order: str = 
         user_tags = [_window_token(order)]
         order_tok = "order:favcount" if order == "favorites" else "order:score"
     min_tok = _min_score_token(source, int(min_score or 0))
-    session = _session()
+    session = _session(source)
     try:
         # sites without native random: jump to a random page
         if order == "random" and eng != "philomena" and not order_tok:
@@ -1051,7 +1073,7 @@ def _scrape_public_list(source: str, user_tags: list[str], rating_tok: str | Non
     d = SOURCES[source]
     base = d["base"]
     tags = " ".join(([rating_tok] if rating_tok else []) + list(user_tags))
-    sess = _session()
+    sess = _session(source)
     sess.headers.update({"User-Agent": BROWSER_UA, "Referer": base + "/", "Accept": "text/html,*/*;q=0.8"})
     try:
         resp = _get(sess, f"{base}/index.php", {"page": "post", "s": "list", "tags": tags or "all", "pid": (page - 1) * 42})
@@ -1130,7 +1152,7 @@ def _lookup_tags(source: str, names: list[str]) -> dict[str, dict]:
     d = SOURCES[source]
     eng, base = d["engine"], d["base"]
     out: dict[str, dict] = {}
-    session = _session()
+    session = _session(source)
     try:
         if eng == "danbooru":
             for i in range(0, len(names), 100):
@@ -1343,7 +1365,7 @@ def explore(source: str = "danbooru", tags: str = "", rating: str = "safe", orde
 def get_post(source: str, post_id: int) -> dict:
     d = source_info(source)
     eng, base = d["engine"], d["base"]
-    session = _session()
+    session = _session(source)
     try:
         post = None
         if eng == "danbooru":
@@ -1374,7 +1396,23 @@ def get_post(source: str, post_id: int) -> dict:
     if not post:
         raise EngineError("That post couldn't be loaded (deleted, restricted, or the site refused the request).")
     apply_categories(source, [post], budget=60)
+    post["tag_counts"] = _special_tag_counts(source, post)
     return post
+
+
+def _special_tag_counts(source: str, post: dict) -> dict[str, int]:
+    """Total posts on the site for this post's artist / copyright / character
+    tags (what the site's own tag page shows). Best-effort: a slow or failing
+    lookup just leaves the count out."""
+    names = [t for cat in ("character", "copyright", "artist") for t in (post.get("tags") or {}).get(cat, [])]
+    if not names:
+        return {}
+    try:
+        info = categorize(source, names[:40], budget=40, seconds=6.0)
+    except Exception:  # noqa: BLE001
+        return {}
+    return {n: int(info[n]["post_count"]) for n in names
+            if info.get(n) and isinstance(info[n].get("post_count"), (int, float))}
 
 
 # ---------------------------------------------------------------------
@@ -1459,7 +1497,7 @@ def tag_wiki(source: str, tag: str) -> dict:
            "body_html": "", "other_names": [], "available": ENGINE_FEATURES[eng]["wiki"],
            "wiki_url": site_wiki_url(source, tag), "search_url": site_search_url(source, tag),
            "extra": [], "related": []}
-    session = _session()
+    session = _session(source)
     try:
         if eng == "danbooru":
             info = _lookup_tags(source, [tag]).get(tag)
@@ -1561,7 +1599,7 @@ def _parse_related(data) -> list[dict]:
 def related_tags(source: str, tag: str, limit: int = 30) -> list[dict]:
     d = source_info(source)
     eng, base = d["engine"], d["base"]
-    session = _session()
+    session = _session(source)
     try:
         data = None
         try:
@@ -1613,7 +1651,7 @@ def autocomplete(source: str, query: str, limit: int = 10) -> list[dict]:
     if not query:
         return []
     limit = max(1, min(int(limit), 20))
-    session = _session()
+    session = _session(source)
     out: list[dict] = []
     try:
         if eng == "danbooru":
@@ -1707,7 +1745,7 @@ def pools(source: str, query: str = "", page: int = 1, limit: int = 20) -> list[
     if not ENGINE_FEATURES[eng]["pools"]:
         raise EngineError(f"{d['name']} has no pool API.")
     q = (query or "").strip()
-    session = _session()
+    session = _session(source)
     try:
         if eng in ("danbooru", "e621"):
             params = {"limit": limit, "page": page, "search[order]": "post_count" if q else "updated_at"}

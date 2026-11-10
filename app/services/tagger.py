@@ -365,9 +365,9 @@ def _preprocess(image_bytes: bytes, target_size: int):
 
 def _preprocess_timm(image_bytes: bytes, target_size: int):
     """Preprocessing for the timm/EVA02 canary tagger: pad to square,
-    resize, RGB, normalized to [-1, 1] (mean=std=0.5 per the model's own
-    pretrained_cfg) - standard timm/ImageNet-style input, NOT the raw
-    0-255 BGR the ONNX WD14 models expect."""
+    resize, normalized to [-1, 1] (mean=std=0.5 per the model's own
+    pretrained_cfg), then channels flipped to BGR (see below). Unlike the
+    ONNX WD14 models it is normalized rather than raw 0-255."""
     import numpy as np
     from PIL import Image
 
@@ -382,6 +382,11 @@ def _preprocess_timm(image_bytes: bytes, target_size: int):
     arr = np.asarray(padded, dtype=np.float32) / 255.0
     arr = (arr - 0.5) / 0.5  # -> [-1, 1]
     arr = np.transpose(arr, (2, 0, 1))  # HWC -> CHW
+    # The WD taggers were trained on BGR input, including their timm builds:
+    # SmilingWolf's reference script (wdv3-timm) flips the channels after the
+    # transform with `inputs[:, [2, 1, 0]]`. Skipping the flip swaps red and
+    # blue, so red eyes came out as blue_eyes and warm skin as blue skin.
+    arr = np.ascontiguousarray(arr[::-1])
     arr = np.expand_dims(arr, axis=0)
     return arr
 
@@ -457,3 +462,57 @@ def tag_image_bytes(
 def tag_image_file(image_path: str, **kwargs) -> dict:
     data = Path(image_path).read_bytes()
     return tag_image_bytes(data, **kwargs)
+
+
+_REGION_CACHE: dict = {}
+
+
+def tag_region(image_path: str, box: dict, model_name: str = DEFAULT_MODEL, top: int = 40, query: str = "") -> list[dict]:
+    """Tag only a selected part of an image.
+
+    `box` is {x, y, w, h} as fractions (0-1) of the image. The crop is scored by
+    the tagger at its full input size, so small details that get drowned out when the
+    whole picture is tagged come through. Every tag the model knows is scored; `whole`
+    is its score on the whole image, so `lift` shows what the crop revealed.
+    `query` searches the model's whole vocabulary (every word must appear in the tag),
+    so a tag that scored too low to make the top list can still be found."""
+    from PIL import Image  # noqa: PLC0415
+
+    try:
+        x, y, w, h = (float(box[k]) for k in ("x", "y", "w", "h"))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise TaggerError("A region needs x, y, w and h.") from exc
+    key = (image_path, Path(image_path).stat().st_mtime_ns, model_name, round(x, 4), round(y, 4), round(w, 4), round(h, 4))
+    scores = _REGION_CACHE.get(key)
+    if scores is None:
+        img = Image.open(image_path)
+        img.load()
+        img = img.convert("RGBA")
+        bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+        img = Image.alpha_composite(bg, img).convert("RGB")
+        W, H = img.size
+        left, top_px = max(0, int(round(x * W))), max(0, int(round(y * H)))
+        right, bottom = min(W, int(round((x + w) * W))), min(H, int(round((y + h) * H)))
+        if right - left < 8 or bottom - top_px < 8:
+            raise TaggerError("That region is too small - drag a larger box.")
+        buf = io.BytesIO()
+        img.crop((left, top_px, right, bottom)).save(buf, "PNG")
+        whole_buf = io.BytesIO()
+        img.save(whole_buf, "PNG")
+
+        def scored(data: bytes) -> dict[str, float]:
+            r = tag_image_bytes(data, model_name=model_name, general_threshold=0.0,
+                                character_threshold=0.0, include_rating=False)
+            return {n: float(p) for n, p in r["general_scored"]}
+
+        crop, whole = scored(buf.getvalue()), scored(whole_buf.getvalue())
+        scores = [(n, p, whole.get(n, 0.0)) for n, p in crop.items()]
+        if len(_REGION_CACHE) > 8:
+            _REGION_CACHE.clear()
+        _REGION_CACHE[key] = scores
+
+    words = [t for t in query.lower().replace("_", " ").split() if t]
+    rows = [(n, p, wh) for n, p, wh in scores if all(wd in n.replace("_", " ").lower() for wd in words)]
+    rows.sort(key=lambda r: -r[1])
+    return [{"tag": n.replace("_", " "), "score": round(p, 4), "whole": round(wh, 4), "lift": round(p - wh, 4)}
+            for n, p, wh in rows[:max(1, int(top))]]

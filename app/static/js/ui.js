@@ -40,6 +40,20 @@ function debounce(fn, wait = 350) {
   };
 }
 
+/** setInterval that skips ticks while the tab is hidden — a minimised window
+ *  otherwise keeps polling the app (and the GPU) for nobody. */
+function visibleInterval(fn, ms) {
+  return setInterval(() => {
+    if (!document.hidden) fn();
+  }, ms);
+}
+
+/** Switch to another tab, exactly as clicking its nav item would. */
+function openView(name) {
+  const btn = document.querySelector(`.nav-item[data-view="${name}"]`);
+  if (btn) btn.click();
+}
+
 // ------------------------- Subset tab strip (Caption + Edit tabs) -------------------------
 // A rail of little tabs for quickly switching between datasets: every
 // folder under the datasets root, plus any folder anywhere on disk the
@@ -280,6 +294,7 @@ const FolderBrowser = (() => {
 
   function open(startPath, callback) {
     onChoose = callback;
+    currentPath = null;               // "Use this folder" must not fire on a stale path
     backdrop().classList.add("open");
     refresh(startPath || null);
   }
@@ -295,6 +310,7 @@ const FolderBrowser = (() => {
       close();
     });
     document.getElementById("folder-modal-new").addEventListener("click", async () => {
+      if (!currentPath) return toast("Still loading the folder list - try again in a moment.", "info");
       const name = prompt("New folder name:");
       if (!name) return;
       const newPath = currentPath.replace(/[\\/]+$/, "") + "/" + name;
@@ -395,13 +411,14 @@ const FileBrowser = (() => {
 // doesn't mean re-browsing the filesystem every time. Persisted in
 // localStorage so it survives a page reload too.
 const ActiveDataset = (() => {
-  let folder = localStorage.getItem("animaStudio.activeDataset") || "";
+  let folder = "";
+  try { folder = localStorage.getItem("animaStudio.activeDataset") || ""; } catch { /* storage blocked: session-only */ }
   const listeners = [];
 
   function set(path) {
     if (!path || path === folder) return;
     folder = path;
-    localStorage.setItem("animaStudio.activeDataset", path);
+    try { localStorage.setItem("animaStudio.activeDataset", path); } catch { /* storage blocked: session-only */ }
     listeners.forEach((fn) => fn(folder));
   }
 
@@ -447,3 +464,82 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target.id !== "lightbox-img" && e.target.id !== "lightbox-action") lb.classList.remove("open");
   });
 });
+
+// ------------------------- Training ETA estimator -------------------------
+// Estimates how long a run has left from the steps it reports, and keeps
+// correcting itself as the run speeds up or slows down:
+//
+//  * the rate is a least-squares fit over a rolling window, so one slow step
+//    cannot throw it off the way a plain "last two samples" average does;
+//  * the window is short enough that a real change (a checkpoint pause, a
+//    dataset switch, thermal throttling, another job sharing the GPU) is
+//    picked up instead of being averaged away;
+//  * the fitted rate and the ETA are both damped with an EWMA, so the number
+//    settles instead of jumping on every poll;
+//  * if steps stop arriving while the run is still alive, `stalled` is set so
+//    the UI can say "saving a checkpoint?" rather than count down a lie.
+//
+// Feed it every poll: update(step, total) -> null | {seconds, rate, stalled}.
+function createEtaEstimator(opts) {
+  const cfg = { windowSeconds: 240, maxSamples: 60, damp: 0.3, rateDamp: 0.35, stallAfter: 45, ...(opts || {}) };
+  const samples = [];
+  let rate = null, seconds = null, stallSince = null;
+
+  function reset() {
+    samples.length = 0;
+    rate = null; seconds = null; stallSince = null;
+  }
+
+  function update(step, total) {
+    if (!Number.isFinite(step)) return null;
+    const now = Date.now() / 1000;
+    const last = samples[samples.length - 1];
+    if (last && step < last.step) reset();                       // a new run started
+    if (!samples.length || step !== samples[samples.length - 1].step) samples.push({ t: now, step });
+    while (samples.length > 2 && now - samples[0].t > cfg.windowSeconds) samples.shift();
+    if (samples.length > cfg.maxSamples) samples.splice(0, samples.length - cfg.maxSamples);
+
+    const quietFor = samples.length ? now - samples[samples.length - 1].t : 0;
+    stallSince = quietFor > cfg.stallAfter ? (stallSince ?? now - quietFor) : null;
+
+    // Steps per second from a least-squares fit over the window.
+    let fitted = 0;
+    if (samples.length >= 2) {
+      const n = samples.length;
+      let mt = 0, ms = 0;
+      for (const s of samples) { mt += s.t; ms += s.step; }
+      mt /= n; ms /= n;
+      let num = 0, den = 0;
+      for (const s of samples) { num += (s.t - mt) * (s.step - ms); den += (s.t - mt) ** 2; }
+      if (den > 1e-9) {
+        fitted = num / den;
+      } else {
+        // every sample landed in the same instant (two polls inside one
+        // millisecond): no slope to fit, so use the endpoints if they differ
+        const first = samples[0], newest = samples[samples.length - 1];
+        if (newest.t > first.t) fitted = (newest.step - first.step) / (newest.t - first.t);
+      }
+    }
+
+    if (fitted > 0) {
+      rate = rate == null ? fitted : rate + (fitted - rate) * cfg.rateDamp;
+      if (Number.isFinite(total)) {
+        const raw = Math.max(0, (total - step) / rate);
+        seconds = seconds == null ? raw : seconds + (raw - seconds) * cfg.damp;
+      }
+    }
+
+    if (stallSince != null) return { seconds, rate, stalled: true, stallSince };
+    if (rate == null || seconds == null) return null;
+    return { seconds, rate, stalled: false, stallSince: null };
+  }
+
+  return { update, reset };
+}
+
+// Compact "1h 05m" / "12m 30s" / "45s" duration for progress read-outs.
+function fmtDuration(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  return h ? `${h}h ${m}m` : m ? `${m}m ${sec % 60}s` : `${sec}s`;
+}

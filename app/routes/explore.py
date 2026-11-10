@@ -6,6 +6,7 @@ import requests
 from flask import Blueprint, Response, jsonify, request
 
 from app.services import booru_engines as eng
+from app.services import img_cache
 from app.services import netbypass
 
 bp = Blueprint("explore", __name__)
@@ -80,7 +81,7 @@ def pools():
 
 @bp.get("/net")
 def net_get():
-    return jsonify({"mode": netbypass.get_mode(), "proxy": eng.get_proxy(),
+    return jsonify({"mode": netbypass.get_mode(), "proxy": eng.get_proxy(), "fragment": netbypass.fragment_enabled(),
                     "providers": [p[0] for p in netbypass.PROVIDERS]})
 
 
@@ -90,11 +91,13 @@ def net_set():
     try:
         if "mode" in body:
             netbypass.set_mode(body["mode"])
+        if "fragment" in body:
+            netbypass.set_fragment(bool(body["fragment"]))
         if "proxy" in body:
             eng.set_proxy(body["proxy"])
     except (ValueError, eng.EngineError) as exc:
         return _err(exc, 400)
-    return jsonify({"mode": netbypass.get_mode(), "proxy": eng.get_proxy()})
+    return jsonify({"mode": netbypass.get_mode(), "proxy": eng.get_proxy(), "fragment": netbypass.fragment_enabled()})
 
 
 @bp.get("/net/test")
@@ -125,13 +128,23 @@ def set_proxy():
 @bp.get("/img")
 def img():
     """Stream an image from a known booru host with the right Referer, so
-    hotlink-protected thumbnails still show up."""
+    hotlink-protected thumbnails still show up. Served from a small disk cache
+    when possible, so scrolling back doesn't re-hit the site."""
     url = request.args.get("url", "")
     ok, referer = eng.image_proxy_ok(url)
     if not ok:
         return jsonify({"error": "Host not allowed"}), 400
     from urllib.parse import urlparse as _up
     eng.MEDIA_HOSTS.add((_up(url).hostname or "").lower())     # lets secure-DNS cover new CDN hosts too
+
+    hit = img_cache.get(url)
+    if hit is not None:
+        body, ctype = hit
+        resp = Response(body, content_type=ctype)
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        resp.headers["X-Cache"] = "HIT"
+        return resp
+
     try:
         upstream = eng.open_image(url, referer or url, eng.get_proxy(), timeout=(8, 25))
     except requests.exceptions.RequestException as exc:
@@ -150,8 +163,32 @@ def img():
     if not (ctype.startswith("image/") or ctype.startswith("video/")):
         upstream.close()
         return jsonify({"error": "Not an image"}), 415
-    resp = Response(upstream.iter_content(chunk_size=1 << 15), content_type=ctype)
+
+    def stream():
+        """Relay the body and keep a copy for the next request."""
+        parts: list[bytes] = []
+        total = 0
+        keep = True
+        try:
+            for chunk in upstream.iter_content(chunk_size=1 << 15):
+                if not chunk:
+                    continue
+                if keep:
+                    total += len(chunk)
+                    if total > img_cache.MAX_ENTRY_BYTES:
+                        keep = False
+                        parts.clear()
+                    else:
+                        parts.append(chunk)
+                yield chunk
+        finally:
+            upstream.close()
+        if keep and parts:
+            img_cache.put(url, b"".join(parts), ctype)
+
+    resp = Response(stream(), content_type=ctype)
     resp.headers["Cache-Control"] = "public, max-age=86400"
+    resp.headers["X-Cache"] = "MISS"
     # Content-Length of a compressed body doesn't match what iter_content yields -> truncated images
     if upstream.headers.get("Content-Length") and not upstream.headers.get("Content-Encoding"):
         resp.headers["Content-Length"] = upstream.headers["Content-Length"]

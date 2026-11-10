@@ -11,10 +11,11 @@ const Explore = (() => {
 
   const st = {
     sources: [], source: "danbooru", order: "random", page: 1, hasMore: false,
-    posts: [], visible: [], tags: [], seq: 0, wikiSeq: 0, loaded: false, inited: false,
+    posts: [], visible: [], tags: [], seq: 0, wikiSeq: 0, loaded: false, inited: false, retryHooked: false,
     selected: new Map(), viewer: -1, panel: "", acItems: [], acIndex: -1,
   };
   const $ = (id) => document.getElementById(id);
+  let acSeq = 0;   // out-of-order autocomplete responses get dropped
   const srcInfo = () => st.sources.find((s) => s.id === st.source) || { features: {}, name: st.source, base: "", engine: "", engine_label: "" };
   const img = (url) => (url ? `/api/explore/img?url=${encodeURIComponent(url)}` : "");
   // Broken-image safety net: retry through the proxy once, then load the original
@@ -80,9 +81,21 @@ const Explore = (() => {
   async function init() {
     if (st.inited) return;
     st.inited = true;
+    // Registered before the fetch below: if the source list fails to load,
+    // entering the tab again retries the whole init instead of leaving the
+    // tab dead until a full page reload.
+    if (!st.retryHooked) {
+      st.retryHooked = true;
+      document.addEventListener("studio:viewchange", (e) => {
+        if (!e.detail || e.detail.view !== "explore") return;
+        if (!st.inited) init();
+        else ensureLoaded();
+      });
+    }
     try {
       st.sources = (await getJSON("/api/explore/sources")).sources;
     } catch (e) {
+      st.inited = false;
       $("bx-status").textContent = `Couldn't load source list: ${e.message}`;
       $("bx-status").classList.add("error");
       return;
@@ -96,9 +109,6 @@ const Explore = (() => {
     if (ms !== null) $("bx-minscore").value = ms;
     applySourceUI();
     bind();
-    document.addEventListener("studio:viewchange", (e) => {
-      if (e.detail.view === "explore") ensureLoaded();
-    });
     if ($("view-explore").classList.contains("active")) ensureLoaded();
   }
 
@@ -338,7 +348,7 @@ const Explore = (() => {
     st.visible.forEach((p, idx) => {
       const key = `${p.source}:${p.id}`;
       const card = h("a", { class: `bx-card${st.selected.has(key) ? " sel" : ""}`, href: "#", onclick: (e) => { e.preventDefault(); openViewer(idx); } }, [
-        imgFallback(h("img", { src: img(p.thumb_url || p.preview_url), loading: "lazy", alt: `#${p.id}` }), p.thumb_url || p.preview_url),
+        imgFallback(h("img", { src: img(p.thumb_url || p.preview_url), loading: "lazy", decoding: "async", alt: `#${p.id}` }), p.thumb_url || p.preview_url),
         h("button", { class: "bx-pick", type: "button", title: "Select for dataset", onclick: (e) => { e.preventDefault(); e.stopPropagation(); toggleSelect(p, card); } }, st.selected.has(key) ? "✓" : "+"),
         h("div", { class: "bx-ov" }, [
           h("span", { class: `rdot ${p.rating}`, title: p.rating }),
@@ -407,7 +417,7 @@ const Explore = (() => {
     if (!list.length) return;
     box.appendChild(h("div", { class: "bx-chars-title", style: "display:block" }, "Characters in this feed - click one to explore"));
     list.forEach((c) => box.appendChild(h("button", { class: "bx-char", type: "button", title: pretty(c.name), onclick: () => searchTag(c.name, "popular") }, [
-      imgFallback(h("img", { src: img(c.cover), loading: "lazy", alt: "" }), c.cover),
+      imgFallback(h("img", { src: img(c.cover), loading: "lazy", decoding: "async", alt: "" }), c.cover),
       h("span", {}, pretty(c.name)),
       h("em", {}, `${c.count} here`),
     ])));
@@ -607,6 +617,10 @@ const Explore = (() => {
         h("button", { class: "ta", type: "button", title: "Exclude", onclick: () => { closeViewer(); addToQuery(t, true); } }, "−"),
         h("button", { class: "tn", type: "button", onclick: () => { closeViewer(); searchTag(t); } }, pretty(t)),
         h("button", { class: "ta", type: "button", title: "Tag wiki", onclick: () => { closeViewer(); window.scrollTo({ top: 0 }); showWiki(t); } }, "?"),
+        // total posts on the site for this tag (artist / copyright / character)
+        (p.tag_counts && p.tag_counts[t] != null)
+          ? h("span", { class: "tc", title: `${p.tag_counts[t].toLocaleString()} posts on ${srcInfo().name}` }, `${p.tag_counts[t].toLocaleString()} posts`)
+          : null,
       ])));
     });
   }
@@ -627,11 +641,12 @@ const Explore = (() => {
     const { token } = currentToken();
     if (token.length < 2) return closeAc();
     const mySource = st.source;
+    const seq = ++acSeq;
     try {
       const data = await api("autocomplete", { source: st.source, query: token, limit: 10 });
-      if (mySource !== st.source) return;
+      if (mySource !== st.source || seq !== acSeq) return;
       renderAc(data.results || []);
-    } catch { closeAc(); }
+    } catch { if (seq === acSeq) closeAc(); }
   }
 
   function renderAc(items) {
@@ -708,6 +723,13 @@ const Explore = (() => {
     });
     p.appendChild(box);
 
+    const frag = h("input", { type: "checkbox" });
+    frag.checked = cfg.fragment !== false;
+    frag.addEventListener("change", () => save({ fragment: frag.checked }, frag.checked ? "Site-name unblocking on" : "Site-name unblocking off"));
+    p.appendChild(h("label", { style: "display:flex;gap:8px;align-items:flex-start;font-size:12.5px;cursor:pointer;margin-bottom:12px" }, [frag,
+      h("span", {}, [h("b", {}, "Also get past blocks on the site name"), h("br"),
+        h("span", { class: "scout-note" }, "When a site can't be reached, retries through a built-in local relay that sends the secure-connection hello in small pieces, which filters that look for the site name can't match. Nothing leaves your computer except the normal connection to the site. On by default.")])]));
+
     const pin = h("input", { type: "text", class: "mono", value: cfg.proxy || "", placeholder: "http://127.0.0.1:7890   or   socks5h://127.0.0.1:1080", style: "width:min(430px,100%)" });
     p.appendChild(h("div", { style: "font-size:12.5px;margin-bottom:4px" }, [h("b", {}, "Proxy / VPN port "), h("span", { class: "scout-note" }, "- for networks that block by address or by site name, which DNS alone can't fix. Run a VPN, Cloudflare WARP (proxy mode) or Tor, and paste its local port here. Leave empty for none.")]));
     p.appendChild(h("div", { class: "row" }, [pin, h("button", { class: "btn small", type: "button", onclick: () => save({ proxy: pin.value.trim() }, pin.value.trim() ? "Proxy saved" : "Proxy cleared") }, "Save proxy")]));
@@ -720,7 +742,7 @@ const Explore = (() => {
           const d = await api("net/test", { sources: "danbooru,gelbooru,konachan,e621,safebooru" });
           out.innerHTML = "";
           d.results.forEach((r) => out.appendChild(h("div", { style: "padding:2px 0" },
-            `${r.host}:  your network ${r.system.ok ? "✓ answers" : "✕ " + (r.system.error || "blocked")}  ·  encrypted DNS ${r.secure.ok ? "✓ works (" + r.secure.provider + ")" : "✕ " + r.secure.error.slice(0, 60)}`)));
+            `${r.host}:  your network ${r.system.ok ? "✓ answers" : "✕ " + (r.system.error || "blocked")}  ·  encrypted DNS ${r.secure.ok ? "✓ works (" + r.secure.provider + ")" : "✕ " + r.secure.error.slice(0, 60)}${r.relay && r.relay.tested ? "  ·  site-name unblocking " + (r.relay.ok ? "✓ gets through" : "✕ " + (r.relay.error || "no")) : ""}`)));
           const bad = d.results.filter((r) => !r.system.ok && r.secure.ok).length;
           const none = d.results.filter((r) => !r.secure.ok).length;
           out.appendChild(h("div", { class: "scout-note", style: "margin-top:8px" },

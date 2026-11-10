@@ -98,9 +98,17 @@ def analyze_dataset(folder: str, deep: bool = True) -> dict:
         except Exception:  # noqa: BLE001 - dhash is best-effort
             near_dup_groups = []
 
-    captioned = sum(
-        1 for p in files
-        if p.with_suffix(".txt").is_file() or p.with_suffix(".caption").is_file())
+    def _has_caption(p: Path) -> bool:
+        for suffix in (".txt", ".caption"):
+            sidecar = p.with_suffix(suffix)
+            if sidecar.is_file() and imaging.read_text_robust(sidecar).strip():
+                return True
+        return False
+
+    captioned = sum(1 for p in files if _has_caption(p))
+    coverage = round(100.0 * captioned / len(files), 1) if files else 0.0
+    if files and captioned < len(files):
+        coverage = min(coverage, 99.9)   # "100%" with a visibly uncaptioned image reads as a bug
 
     return {
         "folder": str(folder),
@@ -114,7 +122,7 @@ def analyze_dataset(folder: str, deep: bool = True) -> dict:
         "extreme_aspect": extreme,
         "exact_duplicates": exact_dups,
         "near_duplicates": near_dup_groups,
-        "caption_coverage": round(100.0 * captioned / len(files), 1) if files else 0.0,
+        "caption_coverage": coverage,
         "tag_frequency": _top_tags(files),
     }
 
@@ -125,10 +133,7 @@ def _top_tags(files: list[Path], limit: int = 25) -> list[dict]:
         sidecar = p.with_suffix(".txt") if p.with_suffix(".txt").is_file() else p.with_suffix(".caption")
         if not sidecar.is_file():
             continue
-        try:
-            text = sidecar.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        text = imaging.read_text_robust(sidecar)
         for tag in re.split(r"[,\n]", text):
             tag = tag.strip()
             if tag:
@@ -238,12 +243,9 @@ def _image_tags(path: Path) -> set[str]:
     if not caption.is_file():
         caption = path.with_suffix(".caption")
     if caption.is_file():
-        try:
-            return {_normalize_tag(t) for t in
-                    caption.read_text(encoding="utf-8", errors="replace").replace("\n", ",").split(",")
-                    if t.strip()}
-        except OSError:
-            return set()
+        return {_normalize_tag(t) for t in
+                imaging.read_text_robust(caption).replace("\n", ",").split(",")
+                if t.strip()}
     return set()
 
 
@@ -412,9 +414,18 @@ def apply_cleanup(folder: str, decisions: dict[str, str]) -> dict:
             continue
         if action == "remove":
             p.unlink()
-            sidecar = p.with_suffix(".txt")
-            if sidecar.is_file():
-                sidecar.unlink()
+            # Also remove everything that belongs to the image (sidecars,
+            # booru-tags json, magic-eraser backup), or the folder is left
+            # with orphan captions and a backup that resurfaces later.
+            for related in (p.with_suffix(".txt"),
+                            p.with_suffix(".caption"),
+                            p.with_name(f"{p.stem}.tags.json"),
+                            p.with_name(f"{p.stem}{imaging.BACKUP_SUFFIX}{p.suffix}")):
+                try:
+                    if related.is_file():
+                        related.unlink()
+                except OSError:
+                    pass
             removed.append(str(p))
         elif action == "review":
             reviewed.append(str(p))

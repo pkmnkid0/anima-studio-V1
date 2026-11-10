@@ -22,6 +22,15 @@ def _caption_path(image_path: Path) -> Path:
     return image_path.with_suffix(".txt")
 
 
+def _folder(folder: str) -> Path:
+    """Bulk-op guard: an empty or missing folder must fail loudly -
+    Path("").iterdir() would silently walk the server's working directory."""
+    p = Path(folder or "")
+    if not str(folder or "").strip() or not p.is_dir():
+        raise NotADirectoryError(f"Not a folder: {folder!r}")
+    return p
+
+
 def read_caption(image_path: str) -> str:
     p = _caption_path(Path(image_path))
     if p.exists():
@@ -73,7 +82,7 @@ def bulk_add_tag(folder: str, tag: str, position: str = "end") -> int:
     if not tag:
         return 0
     changed = 0
-    for f in Path(folder).iterdir():
+    for f in _folder(folder).iterdir():
         if not _is_dataset_image(f):
             continue
         caption_path = _caption_path(f)
@@ -101,7 +110,7 @@ def bulk_remove_tags(folder: str, tags: list[str]) -> int:
     if not tag_set:
         return 0
     changed = 0
-    for f in Path(folder).iterdir():
+    for f in _folder(folder).iterdir():
         if not _is_dataset_image(f):
             continue
         caption_path = _caption_path(f)
@@ -123,7 +132,7 @@ def bulk_find_replace(folder: str, find: str, replace: str, whole_tag_only: bool
     if not find:
         return 0
     changed = 0
-    for f in Path(folder).iterdir():
+    for f in _folder(folder).iterdir():
         if not _is_dataset_image(f):
             continue
         caption_path = _caption_path(f)
@@ -149,7 +158,7 @@ def bulk_find_replace(folder: str, find: str, replace: str, whole_tag_only: bool
 
 def bulk_underscores_to_spaces(folder: str) -> int:
     changed = 0
-    for f in Path(folder).iterdir():
+    for f in _folder(folder).iterdir():
         if not _is_dataset_image(f):
             continue
         caption_path = _caption_path(f)
@@ -157,8 +166,9 @@ def bulk_underscores_to_spaces(folder: str) -> int:
             continue
         original = read_text_robust(caption_path)
         tags = _split(original)
-        # keep emoticon-style tags with underscores intact, e.g. ">_<", "._.":
-        new_tags = [t if t.replace("_", "") == "" else t.replace("_", " ") for t in tags]
+        # Replace underscores between word characters ("long_hair") but
+        # leave emoticon-style tags (">_<", "._.") intact.
+        new_tags = [re.sub(r"(?<=\w)_(?=\w)", " ", t) for t in tags]
         new_text = _join(new_tags)
         if new_text != original:
             caption_path.write_text(new_text, encoding="utf-8")
@@ -184,7 +194,7 @@ def tags_in_folder(folder: str) -> list[str]:
     """Every tag used across a folder's captions (with
     duplicates - the caller decides how to count them)."""
     tags: list[str] = []
-    for f in Path(folder).iterdir():
+    for f in _folder(folder).iterdir():
         if not _is_dataset_image(f):
             continue
         caption_path = _caption_path(f)

@@ -118,6 +118,9 @@ def start(directory: str, command: str | None = None) -> dict:
             args = shlex.split(command, posix=(sys.platform != "win32"))
         except ValueError as exc:
             raise BackendLaunchError(f"Couldn't parse that start command: {exc}") from exc
+        # Windows shlex keeps surrounding quotes ("C:\Program Files\...") -
+        # strip matched pairs so a pasted path with spaces still runs.
+        args = [a[1:-1] if len(a) >= 2 and a[0] == a[-1] and a[0] in "\"'" else a for a in args]
         if not args:
             raise BackendLaunchError("Start command is empty.")
 
@@ -161,7 +164,7 @@ def start(directory: str, command: str | None = None) -> dict:
 
 
 def stop() -> dict:
-    global _proc
+    global _proc, _last_error
     with _lock:
         proc = _proc
     if proc is None or proc.poll() is not None:
@@ -170,9 +173,12 @@ def stop() -> dict:
         return status()
 
     from .procs import kill_tree
-    kill_tree(proc)   # the backend's own helpers (accelerate, trainer) go with it
+    # Clear the tracking BEFORE killing: the reader thread reports a
+    # non-zero exit as a crash, and a deliberate stop must not surface as one.
     with _lock:
         _proc = None
+        _last_error = None
+    kill_tree(proc)   # the backend's own helpers (accelerate, trainer) go with it
     return status()
 
 

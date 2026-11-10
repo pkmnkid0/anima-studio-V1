@@ -3,7 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 
 from .. import config
-from ..services import backend_client, monitor
+from ..services import backend_client, gpu, monitor
 
 bp = Blueprint("monitor", __name__)
 
@@ -36,6 +36,12 @@ def scalars():
     if not logging_dir:
         return jsonify({"available": False, "reason": "No logging directory configured for this run."})
     return jsonify(monitor.read_scalars(logging_dir))
+
+
+@bp.get("/gpu")
+def gpu_health():
+    """Live GPU state for the Train tab's health strip (nvidia-smi, cached briefly)."""
+    return jsonify(gpu.query(force=request.args.get("force") == "1"))
 
 
 @bp.get("/progress")

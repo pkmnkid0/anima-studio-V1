@@ -28,7 +28,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   Collect.init();
   if (window.Explore && Explore.init) Explore.init();
   Edit.init();
+  if (typeof EditAI !== "undefined") EditAI.init(Edit.bridge);
   Caption.init();
+  CaptionTools.init();
   Theme.init();
   try {
     await Train.init();
@@ -37,6 +39,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   Monitor.init();
   if (typeof BackendTab !== "undefined") BackendTab.init();
+  if (typeof MossEnv !== "undefined") MossEnv.init();
+  if (typeof KohakuEnv !== "undefined") KohakuEnv.init();
+  if (typeof EditEnv !== "undefined") EditEnv.init();
+  if (typeof EditModels !== "undefined") EditModels.init();
+  if (typeof Updates !== "undefined") Updates.autoCheck();
   if (window.Tester && Tester.init) Tester.init(); // optional module; not shipped in this build
 
   // Project context last: it derives folder paths for every tab above, so

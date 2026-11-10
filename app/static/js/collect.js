@@ -16,6 +16,52 @@ const Collect = (() => {
   let currentPage = 1;
   let isBooruSearch = false; // whether Prev/Next should re-run a booru search vs. do nothing
 
+  // Booru media sits on CDNs that refuse a hotlink from the app's own page
+  // (cdn.donmai.us answers 403, others check the Referer), which is what left
+  // the results grid full of broken thumbnails. Everything goes through the
+  // app's image proxy instead - the same one the Booru Explorer uses: it sends
+  // the site's own Referer and covers the hosts that need the secure-DNS
+  // fallback.
+  const imgUrl = (url) => (url ? `/api/explore/img?url=${encodeURIComponent(url)}` : "");
+
+  // Broken-image safety net, same as the Explorer's: retry through the proxy,
+  // then the original address with no referrer, then say why (once per host)
+  // instead of leaving a silent blank.
+  const brokenHosts = new Set();
+  function imgFallback(el, original) {
+    let step = 0;
+    el.addEventListener("error", () => {
+      step += 1;
+      if (!original) return;
+      if (step === 1) el.src = imgUrl(original) + "&r=" + Date.now();
+      else if (step === 2) { el.referrerPolicy = "no-referrer"; el.src = original; }
+      else { el.removeAttribute("src"); explainBrokenImage(original); }
+    });
+    return el;
+  }
+  async function explainBrokenImage(url) {
+    let host = "";
+    try { host = new URL(url).hostname; } catch { return; }
+    if (brokenHosts.has(host)) return;
+    brokenHosts.add(host);
+    let msg = `Images from ${host} can't be loaded.`;
+    try {
+      const r = await fetch(`/api/explore/img/test?url=${encodeURIComponent(url)}`).then((x) => x.json());
+      if (r && r.ok) { brokenHosts.delete(host); return; }     // that image was just a one-off
+      if (r && r.message) msg = r.message;
+    } catch { /* keep the generic message */ }
+    toast(`${msg} Try another source, or set a proxy under Booru Explorer → Connection.`, "error");
+  }
+
+  // The lightbox renders an <img>, so a video post (Sakugabooru clips) shows
+  // its still frame instead of something that can never render.
+  function viewerSrc(item) {
+    if (/^(mp4|webm|mkv|mov)$/i.test((item.extension || "").toLowerCase())) {
+      return item.preview_url || item.thumb_url || item.sample_url || "";
+    }
+    return item.file_url || item.sample_url || item.preview_url || "";
+  }
+
   function init() {
     const destInput = document.getElementById("collect-dest-dir");
     if (!destInput.value && ActiveDataset.get()) destInput.value = ActiveDataset.get();
@@ -456,8 +502,18 @@ const Collect = (() => {
       }
     });
 
-    setResults(merged);
     const gotResults = merged.length > 0;
+
+    // Bouncing off the last page (silentEmpty) must leave the current
+    // page on screen - it used to clear the grid and the page indicator
+    // before changePage() reverted the page number.
+    if (silentEmpty && !gotResults) {
+      btn.disabled = false;
+      updateSearchButtonLabel();
+      return false;
+    }
+
+    setResults(merged);
     if (credentialsNeeded) {
       toast(`${credentialsNeeded} needs an API key - click "API keys…" above the sources to add one.`, "error");
     } else if (failedMessages.length) {
@@ -501,8 +557,16 @@ const Collect = (() => {
     const urls = raw.split("\n").map((u) => u.trim()).filter(Boolean);
     if (urls.length === 0) return toast("Paste at least one URL.", "error");
     isBooruSearch = false;
-    const data = await Api.collectFromUrls({ urls });
-    setResults(data.results);
+    const btn = document.getElementById("collect-urls-btn");
+    btn.disabled = true;
+    try {
+      const data = await Api.collectFromUrls({ urls });
+      setResults(data.results);
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   async function doLocalUpload() {
@@ -552,7 +616,7 @@ const Collect = (() => {
     const item = results[idx];
     const tagsText = flattenTagsForDisplay(item.tags);
     const isSelected = selected.has(idx);
-    openLightbox(item.file_url || item.preview_url, tagsText, {
+    openLightbox(imgUrl(viewerSrc(item)), tagsText, {
       label: isSelected ? "✓ Selected — click to remove" : "Select for download",
       active: isSelected,
       onClick: () => { toggleSelect(idx); showPreview(idx); },
@@ -572,7 +636,8 @@ const Collect = (() => {
         class: `result-card${isSelected ? " selected" : ""}`,
         onclick: () => toggleSelect(idx),
       }, [
-        h("img", { src: item.preview_url, loading: "lazy", alt: "" }),
+        imgFallback(h("img", { src: imgUrl(item.preview_url || item.thumb_url || item.file_url), loading: "lazy", decoding: "async", alt: "" }),
+          item.preview_url || item.thumb_url || item.file_url),
         h("div", { class: "check" }, [
           h("svg", { width: "11", height: "9", viewBox: "0 0 11 9", html: "<path d='M1 4.5L4 7.5L10 1' stroke='white' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/>" }),
         ]),

@@ -889,9 +889,13 @@ class BaseDataset(torch.utils.data.Dataset):
 
         self.enable_bucket = False
         self.bucket_manager: BucketManager = None  # not initialized
-        # subset-scoped buckets used for batch formation: each bucket holds image keys
-        # from a single subset so that per-subset batch sizes can be applied
+        # batch pools used for batch formation: each pool holds image keys from one or
+        # more subsets that share the same effective configuration (resolution, bucket
+        # bounds, batch size, jitter config, aug flags), so per-subset batch sizes stay
+        # unambiguous while subsets with matching configurations can share batches
         self.batch_buckets: List[List[str]] = []
+        # parallel to batch_buckets: representative subset of each pool (all pooled
+        # subsets resolve to the same effective batch size and jitter configuration)
         self.batch_bucket_subsets: List[BaseSubset] = []
         # parallel to batch_buckets: jitter resolution side (int) for jitter pools, None otherwise
         self.batch_bucket_jitter_resos: List[Optional[int]] = []
@@ -1577,6 +1581,32 @@ class BaseDataset(torch.utils.data.Dataset):
             [float(w) for w in weights],
         )
 
+    def get_subset_batch_pool_key(self, subset: BaseSubset) -> tuple:
+        """Return an equivalence key grouping subsets whose images may share batch pools.
+
+        Two subsets whose keys match are safe to batch together: they resolve to the
+        same effective resolution, bucket bounds, batch size and jitter configuration,
+        and they carry identical values for the augmentation flags that must be uniform
+        within a batch (flip_aug, alpha_mask, random_crop, random_crop_padding_percent
+        are asserted uniform in __getitem__ / get_item_for_caching). Subsets with
+        different keys get separate pools so per-subset batch sizes stay unambiguous.
+        Batch formation itself is deterministic (index arithmetic), so this never
+        consumes RNG state.
+        """
+        jitter = self.get_subset_resolution_jitter(subset)
+        if jitter is not None:
+            jitter = (tuple(jitter[0]), tuple(jitter[1]), tuple(jitter[2]))
+        return (
+            self.get_subset_resolution(subset),
+            self.get_subset_bucket_bounds(subset),
+            self.get_subset_batch_size(subset),
+            jitter,
+            bool(getattr(subset, "flip_aug", False)),
+            bool(getattr(subset, "alpha_mask", False)),
+            bool(getattr(subset, "random_crop", False)),
+            float(getattr(subset, "random_crop_padding_percent", 0.0) or 0.0),
+        )
+
     def make_buckets(self):
         """
         bucketingを行わない場合も呼び出し必須（ひとつだけbucketを作る）
@@ -1743,7 +1773,10 @@ class BaseDataset(torch.utils.data.Dataset):
                         image_info.jitter_bucket_info[reso_side] = (jitter_reso, jitter_resized)
                         self.bucket_manager.add_if_new_reso(jitter_reso)
 
-        # build subset-scoped batching buckets: every batch is drawn from a single subset,
+        # build batch pools for batch formation: images are pooled by (pool group key,
+        # jitter resolution, bucket resolution). Subsets whose effective configuration
+        # matches (get_subset_batch_pool_key) share a pool, so their images may be mixed
+        # within the same batch; subsets with differing configurations get separate pools,
         # which allows a per-subset batch size (the dataset-level bucket_manager above is
         # kept for resolution bookkeeping and logging only).
         # For jitter-enabled subsets, one pool of batches is built per jitter resolution
@@ -1752,19 +1785,20 @@ class BaseDataset(torch.utils.data.Dataset):
         self.batch_bucket_subsets = []
         self.batch_bucket_jitter_resos = []
         self.batch_bucket_weights = []
-        batch_bucket_ids = {}  # (id(subset), jitter_reso, bucket_reso) -> index into batch_buckets
+        batch_bucket_ids = {}  # (pool_key, jitter_reso, bucket_reso) -> index into batch_buckets
         for image_info in self.image_data.values():
             subset = self.image_to_subset[image_info.image_key]
             for _ in range(image_info.num_repeats):
                 self.bucket_manager.add_image(image_info.bucket_reso, image_info.image_key)
 
+            pool_key = self.get_subset_batch_pool_key(subset)
             cfg = jitter_cfgs.get(id(subset))
             if cfg is None:
                 pool_resos = [(None, image_info.bucket_reso)]
             else:
                 pool_resos = [(reso_side, image_info.jitter_bucket_info[reso_side][0]) for reso_side in cfg[0]]
             for jitter_reso, bucket_reso in pool_resos:
-                bucket_key = (id(subset), jitter_reso, bucket_reso)
+                bucket_key = (pool_key, jitter_reso, bucket_reso)
                 batch_bucket_index = batch_bucket_ids.get(bucket_key)
                 if batch_bucket_index is None:
                     batch_bucket_index = len(self.batch_buckets)
@@ -1794,7 +1828,7 @@ class BaseDataset(torch.utils.data.Dataset):
             logger.info(f"mean ar error (without repeats): {mean_img_ar_error}")
 
         # データ参照用indexを作る。このindexはdatasetのshuffleに用いられる
-        # バッチはサブセット単位で作られるため、バッチサイズはサブセットごとに決まる
+        # バッチは設定が一致するサブセットのプール単位で作られるため、バッチサイズはプールごとに決まる
         # (jitter pools use the batch size configured for their resolution)
         self.buckets_indices: List[BucketBatchIndex] = []
         for bucket_index, bucket in enumerate(self.batch_buckets):
@@ -7088,6 +7122,13 @@ def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
 
             lr_scheduler_kwargs[key] = value
 
+    # Anima Studio fix: RexAnnealingWarmRestarts defaults first_cycle_max_steps to 1, which restarts the
+    # schedule every step and collapses the LR within a few steps. When it was not given, use the run length.
+    if args.lr_scheduler_type and "RexAnnealingWarmRestarts" in str(args.lr_scheduler_type) \
+            and "first_cycle_max_steps" not in lr_scheduler_kwargs:
+        lr_scheduler_kwargs["first_cycle_max_steps"] = max(2, math.ceil(num_training_steps / max(num_cycles, 1)))
+        num_cycles = 1
+
     def wrap_check_needless_num_warmup_steps(return_vals):
         if num_warmup_steps is not None and num_warmup_steps != 0:
             raise ValueError(f"{name} does not require `num_warmup_steps`. Set None or 0.")
@@ -7111,20 +7152,6 @@ def get_scheduler_fix(args, optimizer: Optimizer, num_processes: int):
             lr_scheduler_module = importlib.import_module(".".join(values[:-1]))
             lr_scheduler_type = values[-1]
         lr_scheduler_class = getattr(lr_scheduler_module, lr_scheduler_type)
-        # Restart-style schedulers (RexAnnealingWarmRestarts, CosineAnnealingWarmupRestarts...) take the
-        # length of their first cycle as `first_cycle_max_steps`, which defaults to 1. Left at 1, every
-        # step is a "restart" and the peak LR is multiplied by gamma every step, so the LR collapses to
-        # ~0 within a few dozen steps and nothing is learned. The cycle length has to be the total
-        # steps divided by the number of cycles (LoRA Easy Training Scripts does the same).
-        try:
-            _params = inspect.signature(lr_scheduler_class.__init__).parameters
-        except (TypeError, ValueError):
-            _params = {}
-        if "first_cycle_max_steps" in _params and "first_cycle_max_steps" not in lr_scheduler_kwargs:
-            _cycles = max(1, int(num_cycles or 1))
-            lr_scheduler_kwargs["first_cycle_max_steps"] = max(2, math.ceil(num_training_steps / _cycles))
-            logger.info(f"first_cycle_max_steps not set - using {lr_scheduler_kwargs['first_cycle_max_steps']} "
-                        f"({num_training_steps} steps / {_cycles} cycle(s))")
         lr_scheduler = lr_scheduler_class(optimizer, **lr_scheduler_kwargs)
 
         # For custom schedulers with internal warmup_steps, zero_lr_warmup uses that value

@@ -32,7 +32,9 @@ prompt turns out to be - answering a question they never got to read.
 """
 from __future__ import annotations
 
+import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -88,6 +90,13 @@ def is_installed() -> bool:
 def is_partial() -> bool:
     """A venv folder exists but the install never completed."""
     return (bundled_backend_dir() / "sd_scripts" / "venv").exists() and not is_installed()
+
+
+def venv_python() -> Path:
+    """The backend venv's interpreter. Public because features outside this
+    module (captioning, for one) would rather borrow this environment's
+    PyTorch than install a second copy of it."""
+    return _venv_python()
 
 
 def status() -> dict:
@@ -203,20 +212,21 @@ def start(target_dir: str = "") -> dict:
     training code itself is already here). `target_dir` is only used as
     a fallback for the rare case someone points this at a different
     checkout instead of the bundled one."""
-    global _target_dir
-    if is_busy():
-        raise SetupError("Setup is already running - check the log below, or wait for it to finish.")
-
+    global _target_dir, _last_output_at, _stage, _error
     target = Path(target_dir).expanduser() if target_dir else bundled_backend_dir()
     if not target.exists():
         raise SetupError(f"'{target}' doesn't exist.")
 
+    # Claim the slot under one lock (check + set): two overlapping requests
+    # must not both launch the installer, only one of which would be tracked.
     with _lock:
+        if _stage == "installing":
+            raise SetupError("Setup is already running - check the log below, or wait for it to finish.")
         _log_lines.clear()
-        global _last_output_at
         _last_output_at = time.time()
+        _stage = "installing"
+        _error = None
     _target_dir = str(target)
-    _set_stage("installing")
 
     threading.Thread(target=_run_install, args=(target,), daemon=True).start()
     return status()
@@ -481,3 +491,225 @@ def send_input(text: str) -> dict:
         raise SetupError(f"Couldn't send that: {exc}") from exc
     _append(f"> {text}")
     return status()
+
+
+# ------------------------------------------------------------- verification
+# "Is this backend actually able to train?" - a checklist rather than a single
+# yes/no, because the interesting failures are partial ones: a venv whose
+# PyTorch never finished downloading, a CUDA build that cannot see the GPU, a
+# package that pip skipped. is_installed() only proves a venv exists with a
+# torch/ folder, which is not the same as a trainer that will start.
+
+# Files the vendored backend cannot start without. Relative to training_backend/.
+_REQUIRED_BACKEND_FILES = (
+    "main.py",
+    "sd_scripts/anima_train_network.py",
+    "sd_scripts/sdxl_train_network.py",
+    "sd_scripts/networks/lora_anima.py",
+    "sd_scripts/library/anima_models.py",
+    "custom_scheduler",
+)
+
+_MIN_FREE_GB = 10.0
+
+# One interpreter launch answers every question that needs the venv: three
+# separate launches would each pay a multi-second `import torch`.
+_PROBE_CODE = """
+import importlib.util as u, json, sys
+required = %(required)r
+out = {"python": sys.version.split()[0],
+       "missing": [m for m in required if u.find_spec(m) is None],
+       "scheduler": u.find_spec("LoraEasyCustomOptimizer") is not None,
+       "torch": None, "torch_error": ""}
+try:
+    import torch
+    cuda_ok = bool(torch.cuda.is_available())
+    out["torch"] = {
+        "version": torch.__version__,
+        "cuda": torch.version.cuda or "",
+        "available": cuda_ok,
+        "name": torch.cuda.get_device_name(0) if cuda_ok else "",
+        "count": torch.cuda.device_count() if cuda_ok else 0,
+        "capability": ".".join(str(v) for v in torch.cuda.get_device_capability(0)) if cuda_ok else "",
+    }
+except Exception as exc:
+    out["torch_error"] = "%%s: %%s" %% (type(exc).__name__, exc)
+print("@@VERIFY " + json.dumps(out))
+""" % {"required": list(_REQUIRED_MODULES)}
+
+
+def _probe() -> dict:
+    """Run the questions that need the venv's own interpreter. Never raises."""
+    py = _venv_python()
+    if not py.exists():
+        return {}
+    try:
+        r = subprocess.run([str(py), "-c", _PROBE_CODE], capture_output=True, text=True, timeout=180,
+                           creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"probe_error": str(exc)}
+    for line in (r.stdout or "").splitlines():
+        if line.startswith("@@VERIFY "):
+            try:
+                return json.loads(line[len("@@VERIFY "):])
+            except ValueError:
+                return {"probe_error": "the environment returned unreadable answers"}
+    detail = ((r.stderr or r.stdout or "").strip().splitlines() or ["no output"])[-1]
+    return {"probe_error": detail}
+
+
+def _free_gb(path: Path) -> float | None:
+    try:
+        anchor = path if path.exists() else path.parent
+        return shutil.disk_usage(str(anchor)).free / (1024 ** 3)
+    except OSError:
+        return None
+
+
+def verify() -> dict:
+    """Check the backend install end to end and say what to do about problems.
+
+    Returns {"checks": [{"id", "label", "status", "detail", "fix"}], "ok": bool,
+    "failed": int, "warned": int}. `status` is "ok", "warn" or "fail"; only a
+    "fail" means training cannot start.
+    """
+    checks: list[dict] = []
+
+    def add(item_id: str, label: str, status: str, detail: str, fix: str = "") -> None:
+        checks.append({"id": item_id, "label": label, "status": status, "detail": detail, "fix": fix})
+
+    base = bundled_backend_dir()
+
+    # --- the backend source that ships with the app ------------------------
+    missing = [rel for rel in _REQUIRED_BACKEND_FILES if not (base / rel).exists()]
+    if missing:
+        add("files", "Backend files", "fail",
+            f"{len(missing)} of {len(_REQUIRED_BACKEND_FILES)} expected files are missing from training_backend/: "
+            + ", ".join(missing[:6]) + ("…" if len(missing) > 6 else ""),
+            "Re-extract the Anima Studio archive: the bundled backend is incomplete.")
+    else:
+        add("files", "Backend files", "ok",
+            f"All {len(_REQUIRED_BACKEND_FILES)} expected files are present in training_backend/.")
+
+    server_py = config.APP_DIR / "native_backend" / "server.py"
+    add("trainer_server", "Trainer server code", "ok" if server_py.exists() else "fail",
+        f"native_backend/ is present ({server_py.parent})." if server_py.exists()
+        else f"native_backend/server.py not found next to the app ({server_py.parent}).",
+        "" if server_py.exists() else "Re-extract the Anima Studio archive: native_backend/ is missing.")
+
+    # --- the venv ----------------------------------------------------------
+    py = _venv_python()
+    if not py.exists():
+        add("venv", "Backend environment", "fail",
+            f"No interpreter at {py} - the backend dependencies were never installed.",
+            "Open the Backend tab and press Install dependencies (a multi-GB download).")
+        probe: dict = {}
+    else:
+        add("venv", "Backend environment", "ok", f"Interpreter found at {py}.")
+        probe = _probe()
+        if probe.get("probe_error"):
+            add("probe", "Environment answers", "warn",
+                f"The environment could not be queried: {probe['probe_error']}",
+                "If training fails with import errors, run Install dependencies again.")
+        elif probe:
+            add("probe", "Environment answers", "ok",
+                f"Python {probe.get('python', '?')} answered from the backend environment.")
+
+    # --- torch and CUDA: the check that actually decides "can this train" ---
+    torch_info = probe.get("torch") if probe else None
+    if torch_info:
+        cap = f" (compute {torch_info['capability']})" if torch_info.get("capability") else ""
+        if torch_info.get("available"):
+            add("torch", "PyTorch + CUDA", "ok",
+                f"torch {torch_info['version']} (CUDA {torch_info['cuda'] or '?'}), "
+                f"{torch_info['count']} GPU(s) visible: {torch_info['name']}{cap}.")
+        else:
+            add("torch", "PyTorch + CUDA", "fail",
+                f"torch {torch_info['version']} is installed but sees no CUDA device "
+                f"(build says CUDA {torch_info['cuda'] or 'none'}).",
+                "Reinstall the backend with the build that matches your GPU, or update the NVIDIA driver.")
+    elif probe.get("torch_error"):
+        add("torch", "PyTorch + CUDA", "fail",
+            f"PyTorch could not be imported in the backend environment: {probe['torch_error']}",
+            "Press Install dependencies in the Backend tab to repair the environment.")
+    elif py.exists() and not probe:
+        add("torch", "PyTorch + CUDA", "warn", "Could not check PyTorch in the backend environment.",
+            "Press Install dependencies to repair, then verify again.")
+
+    # --- the rest of the packages -----------------------------------------
+    if probe and "missing" in probe:
+        miss = probe["missing"]
+        if miss:
+            add("packages", "Training packages", "fail",
+                f"{len(miss)} required package(s) missing from the backend environment: {', '.join(miss)}.",
+                "Press Start on the Backend tab - it installs missing packages automatically before launching.")
+        else:
+            add("packages", "Training packages", "ok",
+                f"All {len(_REQUIRED_MODULES)} required packages import in the backend environment.")
+    elif py.exists():
+        miss = missing_modules()
+        if miss:
+            add("packages", "Training packages", "fail",
+                f"{len(miss)} required package(s) missing: {', '.join(miss)}.",
+                "Press Start on the Backend tab - it installs missing packages automatically before launching.")
+        else:
+            add("packages", "Training packages", "ok", "Required packages are all present.")
+
+    # --- the custom schedulers (an editable install pip can quietly drop) ---
+    if probe and "scheduler" in probe:
+        if probe["scheduler"]:
+            add("scheduler", "Custom schedulers", "ok", "LoraEasyCustomOptimizer is importable.")
+        else:
+            add("scheduler", "Custom schedulers", "warn",
+                "LoraEasyCustomOptimizer is not importable - RexAnnealing and friends will not exist.",
+                "Press Install dependencies in the Backend tab to reinstall it from training_backend/custom_scheduler.")
+
+    # --- is the backend actually running and answering ---------------------
+    from . import backend_manager      # imported here: backend_manager imports this module
+    proc = backend_manager.status()
+    if proc.get("running"):
+        add("process", "Backend process", "ok",
+            f"Running: {proc.get('command', '')} (started {_ago(proc.get('started_at'))}).")
+    else:
+        add("process", "Backend process", "warn", "The backend is not running.",
+            "Press Start on the Backend tab - training needs it running." + (f" Last error: {proc['error']}" if proc.get("error") else ""))
+
+    try:
+        from . import backend_client
+        ping = backend_client.ping(config.DEFAULT_BACKEND_URL)
+        if ping.get("reachable"):
+            add("reachable", "Backend responds", "ok", f"{config.DEFAULT_BACKEND_URL} answered.")
+        else:
+            add("reachable", "Backend responds", "warn",
+                f"{config.DEFAULT_BACKEND_URL} did not answer.",
+                "Start the backend, or correct the Backend URL on the Train tab.")
+    except Exception as exc:      # noqa: BLE001 - a health check must never take the page down
+        add("reachable", "Backend responds", "warn", f"Could not reach the backend: {exc}",
+            "Start the backend and check the Backend URL.")
+
+    # --- room to train in --------------------------------------------------
+    free = _free_gb(base)
+    if free is not None:
+        where = base.anchor or str(base)
+        if free < _MIN_FREE_GB:
+            add("disk", "Free disk space", "warn",
+                f"Only {free:.1f} GB free on {where} - cached latents and checkpoints are large.",
+                "Free some space, or point the dataset/output folders at another drive.")
+        else:
+            add("disk", "Free disk space", "ok", f"{free:.1f} GB free on {where}.")
+
+    failed = sum(1 for c in checks if c["status"] == "fail")
+    warned = sum(1 for c in checks if c["status"] == "warn")
+    return {"checks": checks, "ok": failed == 0, "failed": failed, "warned": warned,
+            "installed": is_installed(), "partial": is_partial()}
+
+
+def _ago(when) -> str:
+    if not when:
+        return "earlier"
+    secs = max(0, int(time.time() - float(when)))
+    if secs < 60:
+        return f"{secs}s ago"
+    if secs < 3600:
+        return f"{secs // 60}m ago"
+    return f"{secs // 3600}h ago"

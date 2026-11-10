@@ -139,10 +139,13 @@ def list_subsets() -> list[dict]:
         key = str(p.resolve())
         if key in seen:
             continue
-        image_count = sum(
-            1 for f in p.iterdir()
-            if f.is_file() and f.suffix.lower() in config.IMAGE_EXTENSIONS and not is_backup_file(f)
-        )
+        try:
+            image_count = sum(
+                1 for f in p.iterdir()
+                if f.is_file() and f.suffix.lower() in config.IMAGE_EXTENSIONS and not is_backup_file(f)
+            )
+        except OSError:
+            continue                  # folder vanished/unreadable since it was registered
         seen[key] = {"name": p.name, "path": str(p), "image_count": image_count, "external": True}
 
     return sorted(seen.values(), key=lambda d: d["name"].lower())

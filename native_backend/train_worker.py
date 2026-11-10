@@ -6,7 +6,7 @@ the trainer to notice, (2) a failed run left global state behind
 was never fully released. A separate process fixes all three: Stop kills it
 immediately and every run starts completely clean.
 
-usage: python -m native_backend.train_worker <payload.json> <anima|sdxl>
+usage: python -m native_backend.train_worker <payload.json> <anima|sdxl|moss|kohaku>
 """
 from __future__ import annotations
 
@@ -32,6 +32,13 @@ def main() -> int:
                 sys.stdout.flush()
                 time.sleep(0.1)
             return 0
+        elif kind == "moss":
+            from . import anima_trainer as _a
+
+            class t:  # noqa: N801 - same shape as the other trainer modules
+                run = staticmethod(_a.run_moss)
+        elif kind == "kohaku":
+            from . import kohaku_runner as t      # stdlib only: it runs KohakuMoss' own scripts in its environment
         elif kind == "sdxl":
             from . import sdxl_trainer as t
         else:

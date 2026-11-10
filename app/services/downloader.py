@@ -22,10 +22,16 @@ _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 def _safe_stem(source: str, post_id, file_url: str) -> str:
     if post_id is not None:
-        return f"{source}_{post_id}"
+        # source/post_id come from the remote site's payload: strip anything
+        # that isn't filename-safe so they can't inject path separators or
+        # ".." into the destination path.
+        return _SAFE_NAME_RE.sub("_", f"{source}_{post_id}")[:80]
     # No post id (plain URL) - hash the URL for a stable, collision-free name.
     digest = hashlib.sha1(file_url.encode("utf-8")).hexdigest()[:16]
     return f"web_{digest}"
+
+
+_ALLOWED_EXTS = {"jpg", "jpeg", "png", "webp", "gif", "avif", "bmp"}
 
 
 def _extension_from_url(url: str, fallback: str = "") -> str:
@@ -34,9 +40,24 @@ def _extension_from_url(url: str, fallback: str = "") -> str:
         path = url.split("?")[0]
         if "." in path.rsplit("/", 1)[-1]:
             ext = path.rsplit(".", 1)[-1].lower()
-    if not ext or len(ext) > 5:
-        ext = "jpg"
+    if ext not in _ALLOWED_EXTS:
+        ext = "jpg"                 # junk/double extensions must not become file names
     return ext
+
+
+# A bot-check page or an error document answered with HTTP 200 and an image
+# content type would be saved under an image name and show up as a "broken
+# image" in the dataset, so the first bytes get a sanity check.
+_TEXT_HEAD = (b"<!doctype", b"<html", b"<head", b"<body", b"<?xml", b"<!--")
+
+
+def _looks_like_media(head: bytes) -> bool:
+    low = head.lstrip()[:64].lower()
+    if not low:
+        return True                     # empty chunk: the size check decides
+    if low[:1] in (b"<", b"{", b"[") or low.startswith(_TEXT_HEAD):
+        return False
+    return True
 
 
 def _download_one(item: dict, dest_dir: Path, overwrite: bool) -> dict:
@@ -46,8 +67,16 @@ def _download_one(item: dict, dest_dir: Path, overwrite: bool) -> dict:
     image_path = dest_dir / f"{stem}.{ext}"
 
     if image_path.exists() and not overwrite:
-        return {"file_url": file_url, "status": "skipped", "reason": "already exists", "path": str(image_path)}
+        if image_path.stat().st_size:
+            return {"file_url": file_url, "status": "skipped", "reason": "already exists", "path": str(image_path)}
+        image_path.unlink(missing_ok=True)   # an interrupted run left an empty file: not "already downloaded"
 
+    # Download to <name>.part and rename only once the whole body arrived, so a
+    # dropped connection can't leave a truncated file that looks like a real
+    # image and would be "skipped" on every later attempt.
+    # unique per item: two workers downloading the same name must not share
+    # one .part file and interleave their bytes into a "successful" image
+    tmp_path = image_path.with_name(f"{image_path.name}.{id(item):x}.part")
     try:
         resp = open_image(file_url, referer_for(file_url), get_proxy(), timeout=(10, REQUEST_TIMEOUT))
         resp.raise_for_status()
@@ -55,10 +84,24 @@ def _download_one(item: dict, dest_dir: Path, overwrite: bool) -> dict:
                 "image/avif": "avif", "image/bmp": "bmp"}.get(resp.headers.get("Content-Type", "").split(";")[0].strip().lower())
         if real and real != ext and not (real == "jpg" and ext == "jpeg"):
             image_path = dest_dir / f"{stem}.{real}"       # derived URLs can guess the wrong extension
-        with open(image_path, "wb") as fh:
+            tmp_path = image_path.with_name(f"{image_path.name}.{id(item):x}.part")
+        written = 0
+        with open(tmp_path, "wb") as fh:
             for chunk in resp.iter_content(chunk_size=1 << 16):
+                if not chunk:
+                    continue
+                if not written and not _looks_like_media(chunk):
+                    raise ValueError("the site sent a web page instead of the image")
+                written += len(chunk)
                 fh.write(chunk)
-    except requests.exceptions.RequestException as exc:
+        if not written:
+            raise ValueError("the site sent an empty file")
+        tmp_path.replace(image_path)
+    except (requests.exceptions.RequestException, ValueError, OSError) as exc:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
         return {"file_url": file_url, "status": "error", "reason": str(exc)}
 
     return {"file_url": file_url, "status": "ok", "path": str(image_path)}
@@ -75,7 +118,11 @@ def download_batch(items: list[dict], dest_dir: str | Path, overwrite: bool = Fa
             for item in items
         }
         for future in as_completed(futures):
-            results.append(future.result())
+            item = futures[future]
+            try:
+                results.append(future.result())
+            except Exception as exc:  # noqa: BLE001 - one bad item must not lose the whole batch
+                results.append({"file_url": item.get("file_url", ""), "status": "error", "reason": str(exc)})
     return results
 
 

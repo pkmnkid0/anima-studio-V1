@@ -111,15 +111,17 @@ const Projects = (() => {
   }
 
   let searchTimer = null;
+  let loadSeq = 0;
 
   async function load() {
     const grid = document.getElementById("project-grid");
     const empty = document.getElementById("projects-empty");
     if (!grid) return;
-    grid.innerHTML = "";
+    const seq = ++loadSeq;         // a slow listing must not append twice
     try {
       const q = (document.getElementById("project-search") || {}).value || "";
       const { projects, defaults } = await Api.projectsList(q.trim());
+      if (seq !== loadSeq) return;
       if (defaults && !document.getElementById("new-project-type").dataset.touched) {
         document.getElementById("new-project-type").value = defaults.project_type;
         document.getElementById("new-project-model").value = defaults.model_type;
@@ -132,6 +134,8 @@ const Projects = (() => {
       // Probe the bare identifier: Context is a `const` in a classic script,
       // so it is a lexical global and never a property of window.
       if (typeof Context !== "undefined") await Context.refresh();
+      if (seq !== loadSeq) return;
+      grid.innerHTML = "";
       if (!projects.length) {
         empty.style.display = "block";
         empty.querySelector("h3").textContent = q.trim() ? "No projects match" : "No projects yet";
