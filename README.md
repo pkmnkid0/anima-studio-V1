@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="docs/screenshots/logo.png" width="96" alt="Anima Studio logo">
-
-# Anima Studio
+# Anima Studio V1
 
 **The whole LoRA pipeline in one local app.**
 Collect → Edit → Caption → Train → Monitor, for **Anima (DiT)** and **SDXL**.
@@ -14,7 +12,6 @@ Collect → Edit → Caption → Train → Monitor, for **Anima (DiT)** and **SD
 ![tests](https://img.shields.io/badge/tests-44%20passing-2ea44f)
 ![local](https://img.shields.io/badge/runs-100%25%20local-d2a45a)
 
-<img src="docs/screenshots/train-dataset.png" alt="Anima Studio - Train tab" width="900">
 
 </div>
 
@@ -22,7 +19,7 @@ Collect → Edit → Caption → Train → Monitor, for **Anima (DiT)** and **SD
 
 ## What it is
 
-Anima Studio is a small local web app (Python/Flask backend, plain HTML/JS frontend) that runs on your own machine, in a browser tab or its own desktop window. A folder you work on in one tab follows you into the next, so a dataset goes from "images on a booru" to "trained LoRA" without leaving the app.
+Anima Studio V1 is a local web app (Python/Flask backend, plain HTML/JS frontend) that runs on your own machine, in a browser tab or its own desktop window. A folder you work on in one tab follows you into the next, so a dataset goes from "images on a booru" to "trained LoRA" without leaving the app.
 
 Nothing about your images, tags or models leaves your machine except the requests you explicitly make: booru search, tagger model download, and your own training backend.
 
@@ -48,59 +45,11 @@ flowchart LR
 
 ## Screenshots
 
-> Captured from the running app with a small synthetic demo dataset.
-
-### Collect
-<img src="docs/screenshots/collect.png" alt="Collect tab" width="900">
-
-### Edit
-<img src="docs/screenshots/edit.png" alt="Edit tab" width="900">
-
-### Caption
-<img src="docs/screenshots/caption.png" alt="Caption tab" width="900">
-
-<details>
-<summary><b>Tag Frequency view</b></summary>
-
-<img src="docs/screenshots/caption-tags.png" alt="Tag frequency" width="900">
-
-</details>
-
-### Train
-The Training tab is split into five sub-tabs. Related options sit together, and each tick option sits next to the settings it controls.
-
-<table>
-<tr>
-<td align="center"><b>Dataset</b><br><img src="docs/screenshots/train-dataset.png" alt="Train: Dataset"></td>
-<td align="center"><b>Model &amp; network</b><br><img src="docs/screenshots/train-model.png" alt="Train: Model and network"></td>
-</tr>
-<tr>
-<td align="center"><b>Training</b><br><img src="docs/screenshots/train-training.png" alt="Train: Training"></td>
-<td align="center"><b>Output</b><br><img src="docs/screenshots/train-output.png" alt="Train: Output"></td>
-</tr>
-</table>
-
-<details>
-<summary><b>Advanced</b></summary>
-
-<img src="docs/screenshots/train-advanced.png" alt="Advanced" width="900">
-
-</details>
-
-### Monitor
-<img src="docs/screenshots/monitor.png" alt="Monitor tab" width="900">
-
-### Projects and Backend
-<table>
-<tr>
-<td align="center"><b>Projects</b><br><img src="docs/screenshots/projects.png" alt="Projects tab"></td>
-<td align="center"><b>Backend</b><br><img src="docs/screenshots/backend.png" alt="Backend tab"></td>
-</tr>
-</table>
+The V1 README intentionally omits the V0.1 preview images. Updated screenshots will be added after they are captured directly from the running V1 application.
 
 ## Complete feature reference
 
-Every tab, every option. (Built from the app's own screens, so it matches what you see.)
+This reference documents the application features and controls described in this repository.
 
 ### Projects
 - One folder per LoRA, with a fixed `dataset` and `output` layout created for you
