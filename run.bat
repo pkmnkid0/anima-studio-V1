@@ -22,11 +22,12 @@ set NEED_INSTALL=0
 if not exist ".venv\.deps_installed" set NEED_INSTALL=1
 if /i "%~1"=="--update" set NEED_INSTALL=1
 
+REM Slow connections: pip's default 15s timeout is too short. For a mirror, run first:
+REM   set PIP_INDEX_URL=https://pypi.org/simple   (or any mirror you can reach)
+REM Set outside the if-block below: %VAR% inside a block expands before "set" runs.
+set PIP_OPTS=--default-timeout=120 --retries 10
 if "%NEED_INSTALL%"=="1" (
     echo Installing dependencies ...
-    REM Slow connections: pip's default 15s timeout is too short. For a mirror, run first:
-    REM   set PIP_INDEX_URL=https://pypi.org/simple   (or any mirror you can reach)
-    set PIP_OPTS=--default-timeout=120 --retries 10
     ".venv\Scripts\python.exe" -m pip install %PIP_OPTS% -r requirements.txt
     if errorlevel 1 (
         echo.

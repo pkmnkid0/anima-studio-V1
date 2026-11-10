@@ -1,6 +1,8 @@
 <div align="center">
 
-# Anima Studio V1
+<img src="docs/screenshots/logo.png" width="96" alt="Anima Studio logo">
+
+# Anima Studio
 
 **The whole LoRA pipeline in one local app.**
 Collect → Edit → Caption → Train → Monitor, for **Anima (DiT)** and **SDXL**.
@@ -9,9 +11,10 @@ Collect → Edit → Caption → Train → Monitor, for **Anima (DiT)** and **SD
 ![flask](https://img.shields.io/badge/backend-Flask-000000?logo=flask)
 ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555)
 ![gpu](https://img.shields.io/badge/training-NVIDIA%20CUDA-76B900?logo=nvidia&logoColor=white)
-![tests](https://img.shields.io/badge/tests-44%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-56%20passing-2ea44f)
 ![local](https://img.shields.io/badge/runs-100%25%20local-d2a45a)
 
+<img src="docs/screenshots/train-dataset.png" alt="Anima Studio - Train tab" width="900">
 
 </div>
 
@@ -19,7 +22,7 @@ Collect → Edit → Caption → Train → Monitor, for **Anima (DiT)** and **SD
 
 ## What it is
 
-Anima Studio V1 is a local web app (Python/Flask backend, plain HTML/JS frontend) that runs on your own machine, in a browser tab or its own desktop window. A folder you work on in one tab follows you into the next, so a dataset goes from "images on a booru" to "trained LoRA" without leaving the app.
+Anima Studio is a small local web app (Python/Flask backend, plain HTML/JS frontend) that runs on your own machine, in a browser tab or its own desktop window. A folder you work on in one tab follows you into the next, so a dataset goes from "images on a booru" to "trained LoRA" without leaving the app.
 
 Nothing about your images, tags or models leaves your machine except the requests you explicitly make: booru search, tagger model download, and your own training backend.
 
@@ -38,18 +41,66 @@ flowchart LR
 | 🔎 | **Booru Explorer** | A booru-style browser with random / trending / top-score feeds, tag autocomplete, a tag sidebar by category, tag wiki, pools, saved searches and a local blacklist. |
 | ⬇️ | **Collect** | Search 20 booru sources at once (or a web page, URL list, or local files). **Smart curation** picks a balanced subset: ticked filter tags are alternatives (any one of them), then it de-duplicates and balances views, outfits and poses. |
 | ✂️ | **Edit** | Paint-out watermark eraser, Windows-Photos-style crop with aspect lock, **duplicate finder** (dHash), and **multi-resolution export** (512 / 1024 / 1536 / custom copies of your dataset). |
-| 🏷️ | **Caption** | **Edit tags** on any image (auto-saved) or across the whole dataset, **Tag Frequency** view (strike a tag from every caption in one click, rename everywhere), caption-variation detection, and auto-tagging. |
-| 🧪 | **Train** | One form for every setting, grouped into Dataset / Model & network / Training / Output / Advanced. Presets, a job **queue**, `.toml` import/export, pre-run warnings, and a Studio tab. |
-| 📈 | **Monitor** | Live step / loss / ETA, newest run's **loss and learning-rate charts** (TensorBoard), sample images and saved checkpoints. |
-| ⚙️ | **Backend** | Installs, starts and stops the bundled training engine and shows its log. |
+| 🏷️ | **Caption** | **Edit tags** on any image (auto-saved) or across the whole dataset, **Tag Frequency** view (strike a tag from every caption in one click, rename everywhere), caption-variation detection, auto-tagging, and **natural-language captions** written from the tags or by a local vision-language model. |
+| 🧪 | **Train** | One form for every setting, grouped into Dataset / Model & network / Training / Output / Advanced. Presets, a job **queue**, `.toml` import/export, pre-run warnings, and a Studio tab with packaging, slimming and **metadata removal**. |
+| 📈 | **Monitor** | Live step / loss / **self-correcting ETA**, a **GPU health strip** (VRAM, utilisation, temperature, power), the newest run's **loss and learning-rate charts** (TensorBoard), sample images and saved checkpoints. |
+| ⚙️ | **Backend** | Installs, starts and stops the bundled training engine, shows its log, and **verifies its own integrity** - files, venv, torch + CUDA, packages, process, reachability and disk - with the fix for whatever is missing. |
 
 ## Screenshots
 
-The V1 README intentionally omits the V0.1 preview images. Updated screenshots will be added after they are captured directly from the running V1 application.
+> Captured from the running app with a small synthetic demo dataset.
+
+### Collect
+<img src="docs/screenshots/collect.png" alt="Collect tab" width="900">
+
+### Edit
+<img src="docs/screenshots/edit.png" alt="Edit tab" width="900">
+
+### Caption
+<img src="docs/screenshots/caption.png" alt="Caption tab" width="900">
+
+<details>
+<summary><b>Tag Frequency view</b></summary>
+
+<img src="docs/screenshots/caption-tags.png" alt="Tag frequency" width="900">
+
+</details>
+
+### Train
+The Training tab is split into five sub-tabs. Related options sit together, and each tick option sits next to the settings it controls.
+
+<table>
+<tr>
+<td align="center"><b>Dataset</b><br><img src="docs/screenshots/train-dataset.png" alt="Train: Dataset"></td>
+<td align="center"><b>Model &amp; network</b><br><img src="docs/screenshots/train-model.png" alt="Train: Model and network"></td>
+</tr>
+<tr>
+<td align="center"><b>Training</b><br><img src="docs/screenshots/train-training.png" alt="Train: Training"></td>
+<td align="center"><b>Output</b><br><img src="docs/screenshots/train-output.png" alt="Train: Output"></td>
+</tr>
+</table>
+
+<details>
+<summary><b>Advanced</b></summary>
+
+<img src="docs/screenshots/train-advanced.png" alt="Advanced" width="900">
+
+</details>
+
+### Monitor
+<img src="docs/screenshots/monitor.png" alt="Monitor tab" width="900">
+
+### Projects and Backend
+<table>
+<tr>
+<td align="center"><b>Projects</b><br><img src="docs/screenshots/projects.png" alt="Projects tab"></td>
+<td align="center"><b>Backend</b><br><img src="docs/screenshots/backend.png" alt="Backend tab"></td>
+</tr>
+</table>
 
 ## Complete feature reference
 
-This reference documents the application features and controls described in this repository.
+Every tab, every option. (Built from the app's own screens, so it matches what you see.)
 
 ### Projects
 - One folder per LoRA, with a fixed `dataset` and `output` layout created for you
@@ -66,7 +117,7 @@ This reference documents the application features and controls described in this
 - **"Characters in this feed"** cards to jump straight into a character
 - Sidebar of the page's tags grouped by category (artist, copyright, character, general, meta) with **+ add, - exclude and ? wiki** on every tag
 - **Tag wiki** when searching a single tag: text, aliases, post count, category, related tags, artist links
-- Full-screen **viewer** with categorized tags, score, size, source, parent/children posts, pools, and **previous/next with the arrow keys** (Esc closes)
+- Full-screen **viewer** with categorized tags (artist, copyright and character tags show their **total posts on the site**), score, size, source, parent/children posts, pools, and **previous/next with the arrow keys** (Esc closes)
 - **Pools** browser, **Saved searches**, a local **Blacklist** (posts with those tags are hidden)
 - Select posts with **+** on a card, then **Add to dataset** into any destination folder (Browse, Clear selection)
 - **Connection panel** for blocked sites: Automatic mode switches to encrypted DNS (Cloudflare / Google / Quad9), a **Test connection** button shows which part works, and a **proxy** setting is used for searches and downloads
@@ -78,6 +129,8 @@ This reference documents the application features and controls described in this
 - **Multi-source search**: pick several boorus and the results are merged
 - Live tag suggestions, results per page, rating filter, Prev / Next paging
 - **Eye icon** on any result to preview full size and select it for download from there
+- **Thumbnails and previews** load through the app's image proxy (with each site's own Referer), so hotlink-protected CDNs like Danbooru's still show up; if an image really can't be fetched, it is retried and the reason is shown
+- **Downloads are checked** before they land in the folder: a half-finished file, an empty file, or a web page served instead of an image is reported as failed instead of saved as a broken image
 - **Select all / Clear**, choose the destination folder, **Download selected / Download all**
 - **Web page**: paste a URL and **Scan page** to list its images; **URL list**: one image URL per line
 - **Local files**: pick images from your computer and add them to a dataset
@@ -115,11 +168,21 @@ This reference documents the application features and controls described in this
 - **Edit tags on any image:** each image has its own caption box. Type to add, remove, reorder or reword tags and it **saves automatically** as you type. Search by filename or tag content to find the image you want
 - **Edit tags across the whole dataset** without opening every image: add, remove, find and replace, rename (pencil in Tag Frequency), strike, standardise variants, and convert underscores to spaces
 - **Auto-tagging** with 6 models: WD ViT v3, WD SwinV2 v3, WD ConvNeXt v3, WD EVA02-Large v3, WD EVA02 2026 canary and **PixAI tagger v1.0**
-  - One-click model download with progress, then fully offline; one-click dependency install for the timm/PixAI models
+  - One-click model download with progress, then fully offline; the timm/PixAI models' extra packages install once from the **Backend** tab (Feature dependencies)
   - General and character **threshold** sliders; apply to **images without captions** or **all images (overwrite)**
+- **Natural-language captions** (the NL caption card): turn the existing tags into a sentence with no model at all - hair, framing and background tags fold into clauses ("mychar, a girl with long blue hair in twintails, shown full body, on a grey gradient background") - or download a local vision-language model (**Florence-2-large**, **Qwen2.5-VL-3B-Instruct** or **JoyCaption beta**) and caption straight from the picture. Each run either **replaces** the caption or **keeps the tags and appends the sentence**, with an optional trigger word kept at the front. Live preview before you commit; the vision-language model fills only the images you choose, while rephrasing always covers every image that has tags; runs in its own process so its VRAM is handed back when the batch ends
 - **Bulk edit**: add a tag to all, **prepend a trigger word** (always the first tag), remove a tag from all, find and replace a tag, convert underscores to spaces
 - **Tag Frequency**: every tag as a chip with its count, sort by count or A to Z, filter box; **click a tag to strike it from every caption** (click again to restore it to exactly the images it came from); **pencil** to rename a tag everywhere
 - **Tag variation detection** (Cleanup): finds tags meaning the same thing (white_hair vs silver_hair), tick groups and **Standardize selected**
+- **Chip editor** on every image: type and press Enter to add a tag, **autocomplete** suggests tags already in your dataset (most common first), **drag chips to reorder**, click × to remove, **Ctrl+Z** undoes the last change on that image, and **Aa** switches to plain text
+- **Tag a region**: in the zoomed viewer click "Tag a region" and drag a box around a detail the tagger misses on the whole image. Only that crop is scored (with the tagger model chosen in Auto-tag), and the closest tags appear ranked with their scores; ★ marks tags the whole image missed. Click one to add it to the caption. A **search box** under the results looks through the tagger's whole vocabulary (type `plate` or `crotch`) and shows how that crop scores for each match, so a correct tag that ranked too low to show up can still be found
+- **Zoom an image** and edit its tag chips right beside it; **← → keys or the arrow buttons** move through the images (respecting your search and tag filter), Esc closes
+- **Multi-select** images (hover the circle, shift-click for a range), then add or remove a tag on just those; **copy one image's tags and paste them onto the selection**
+- **Images-for-this-tag filter**: the ▦ button on a Tag Frequency chip shows only the images with that tag
+- **Undo** for every bulk change (add, remove, find and replace, auto-tag, cleanup tools)
+- **Colour guard** for auto-tagging keeps one eye colour and one hair colour per image and drops low-confidence blue/green skin
+- **Redundant tags** (tick which: `shirt` beside `white shirt`), **Tag variations** (click which spelling to keep), **blacklist** (applied automatically after auto-tagging if you like), **remove repeated tags** and **tag relationships** (which tags always travel together)
+- **Auto-sort** in the Bulk edit card: reorders every caption — the first tags stay put, then subject, hair, eyes, body, clothing, expression, pose, other, setting, meta
 - Top tags panel
 
 ### Train
@@ -165,6 +228,8 @@ This reference documents the application features and controls described in this
 - **Images and steps calculator**: images, repeats, epochs, project type, batch size, gradient accumulation and steps per second give total steps and an **estimated duration**
 - **Training history**: every run is recorded; **Compare selected** runs side by side
 - **LoRA packaging**: pick a `.safetensors`, read its metadata to auto-fill the form, add package name, trigger words, description and dataset folder, and bundle a shareable, self-describing folder (and zip)
+- **LoRA slimmer**: analyze a standard LoRA/LoCon and see, per option (fixed rank or "keep N% of the change"), the resulting size, space saved and how much of the learned change survives; pick one (a recommendation is starred), optionally convert to fp16/bf16, and a new smaller file is written next to the original. The original is never overwritten. LoHa/LoKr/DoRA files are not supported
+- **Metadata remover**: read every key stored inside a `.safetensors` - training comments, dataset paths, hashes, your own notes - then write a copy with the metadata stripped (`<name>_nometa.safetensors`). Tick the keys to keep. The original is never touched
 
 **Queue**
 - **Add current config to queue** (a snapshot), jobs train one after another
@@ -174,13 +239,14 @@ This reference documents the application features and controls described in this
 - Live TOML preview, **Download .toml**, **Load .toml** (upload or from disk), **Save .toml to disk**; settings round-trip exactly
 
 **Training bar (every tab)**
-- A **Train** pill that expands on hover with **Start training** and **Add to queue**; while training it shows progress, step / epoch / loss, estimated time remaining (or elapsed time for trainers that only report start and finish) and the queue
+- A **Train** pill that expands on hover with **Start training** and **Add to queue**; while training it shows progress, step / epoch / loss, estimated time remaining (or elapsed time for trainers that only report start and finish), the queue, and the card's **GPU utilisation, VRAM and temperature** - the read-out drops its parts as the window narrows so the run's own numbers always stay
 - **Stop** button; from another tab, Start asks you to confirm it will use the Train tab's settings
 - Error panel with a plain-language hint (out of memory, missing package, unknown optimizer) and a **Copy** button for the log
 
 ### Monitor
 - Output folder and logging folder (the log folder falls back to `<output>/logs`)
-- **Status** light, **step / epoch / loss** progress bar
+- **Status** light, **step / epoch / loss** progress bar with a **self-correcting ETA**: a least-squares rate over a rolling window of samples, damped so a slow step does not throw the estimate, and honest when it cannot know - "saving a checkpoint?" after a stall, elapsed time for trainers that only report start and finish
+- **GPU health strip**: VRAM in use (with a bar), utilisation, temperature, power draw and fan speed, read from `nvidia-smi` - no torch, no extra packages. The dot turns red past 85°C, and the whole strip hides itself on a machine with no NVIDIA GPU
 - **Loss and metric charts** for the newest run only, with y-range in each title and clean scientific notation for tiny values; clears and re-checks when a new run starts
 - **Latest samples** grid with click-to-zoom, **checkpoints** list with size and age
 - **Auto-refresh** that only polls while the tab is open, plus Refresh now
@@ -188,17 +254,19 @@ This reference documents the application features and controls described in this
 ### Backend
 - Three-step status: **Installed**, **Process running**, **Connected**
 - **Install dependencies** with live log and an input box to answer the installer's questions; nothing installs automatically
+- **Feature dependencies**: one card for the optional packages the tagger's timm models, the vision-language captioner and the AI upscaler need - status, Install button and live log in one place, so the feature tabs only show a short note when something is missing
+- **Verify integrity**: one click checks the backend's files, its virtual environment, torch + CUDA, the packages, the custom scheduler, whether the process is running, whether it answers, and free disk space - each with a plain-language fix when something is missing
 - **Start / Stop**, **Auto-start with Anima Studio**, editable start command, backend URL, **Check connection**, and a backend log
 
 ### App-wide
 - **Appearance**: background colour, accent colour, six presets, Reset to default, saved between launches
-- **App settings**: Collect / Edit / Caption / Explorer settings are saved automatically per project and globally, and as **named presets**; secrets and project folders are never captured
+- **App settings**: Collect / Edit / Caption / Explorer settings and the **Monitor output and log folders** are saved automatically per project and globally (plus a **default log folder** you set once - Train and Monitor both use it), and as **named presets**. **"Always load these settings when opening the app"** is on by default; turn it off to start fresh, or pick a preset to load at startup. Secrets and the folders that follow your project are never captured
 - **Desktop window** via pywebview, **standalone `.exe`** build, or plain browser tab
 - Folder browser with new-folder button, drag and drop of folders and images
 - **Warnings by name**: a missing or misnamed caption file is reported with the exact name it should have (`a.png` needs `a.txt`), and the trainer log prints how many images have captions
 - **Run it once, no surprise installs**: opening the app never downloads anything; `run.bat` installs its own dependencies once (`run.bat --update` to refresh)
 - Local-only: nothing leaves your machine except searches, model downloads and your own backend
-- Test suite (44 tests, no GPU needed)
+- Test suite (56 tests, no GPU needed)
 
 ## Specifications
 
@@ -212,13 +280,13 @@ This reference documents the application features and controls described in this
 | **Loss types** | 14, plus min-SNR, debiased estimation, masked loss, noise offset and Huber |
 | **Sample samplers** | 16 |
 | **Dataset sources** | 20 booru sites (Danbooru, Gelbooru, Safebooru, Konachan, yande.re, e621 and more), web pages, URL lists, local files |
-| **Auto-taggers** | WD ViT / SwinV2 / ConvNeXt / EVA02-Large v3, EVA02 2026 canary, and **PixAI tagger v1.0** |
+| **Auto-taggers** | WD ViT / SwinV2 / ConvNeXt / EVA02-Large v3, EVA02 2026 canary, and **PixAI tagger v1.0**; natural-language captions from tags or from a local VLM (Florence-2-large, Qwen2.5-VL-3B, JoyCaption beta) |
 | **Image tools** | Magic eraser, crop with AI or classical upscale, duplicate detection, multi-resolution export |
-| **Monitoring** | Progress, loss and learning-rate charts (TensorBoard), samples, checkpoints |
+| **Monitoring** | Progress, self-correcting ETA, loss and learning-rate charts (TensorBoard), samples, checkpoints, GPU telemetry (VRAM, utilisation, temperature, power) |
 | **Run control** | Queue with reorder / cancel / retry, presets, `.toml` import and export |
 | **Packaging** | `run.bat` / `run.sh`, `desktop.py` (own window via pywebview), or a standalone `.exe` via `build_windows.bat` |
 | **Frontend** | Vanilla JS, no build step, themeable via Appearance |
-| **Tests** | 44 passing, 2 skipped without torch; needs no GPU |
+| **Tests** | 56 passing, 20 skipped without torch; needs no GPU |
 
 ## Quick start
 
@@ -264,6 +332,120 @@ pip install pytest
 python -m pytest
 ```
 
+## Security
+
+Anima Studio is a local app and is meant to be used only by you.
+
+- It listens on `127.0.0.1` (this computer only) by default.
+- **Other websites cannot drive it.** Cross-site requests, foreign host names (DNS rebinding) and CORS are all refused, so a page open in another tab cannot read your folders or change captions.
+- The training backend also refuses any request that comes from a browser.
+- Remote content (booru wiki text) is escaped before it is shown; the image proxy only fetches from known booru hosts.
+- API keys you enter are stored in plain text in `data/settings.json` on your machine. Do not share that file.
+- Do not set `ANIMA_STUDIO_HOST` to `0.0.0.0` unless you trust everyone on your network: there is no login.
+
 ## Licences
 
 Anima Studio bundles third-party code; see `THIRD_PARTY_NOTICES.md`. Models (Anima, Qwen3, VAEs, taggers) have their own licences, so check them before any commercial use.
+
+
+## MOSS-Image LoRA training (8 GB and up)
+
+Train tab -> Model type **MOSS-Image**. The trainer is the `moss-image` sd-scripts fork, bundled in `moss_backend/`
+and run in its own environment (torch 2.14 / CUDA 13): open the Backend tab and press **Set up MOSS-Image
+environment** once. Pick the MOSS-Image model folder and a **VRAM profile**; the profile sets blocks-to-swap, the
+text-encoder load mode and attention for you:
+
+| Profile | DiT | Text encoder while caching |
+|---|---|---|
+| 8 GB | full bf16, 36 blocks swapped to RAM | exact bf16, streamed from CPU RAM (needs ~20 GB RAM) |
+| 10 GB | full bf16, 30 blocks swapped to RAM | exact bf16, 7.5 GB on the GPU, rest from RAM |
+| 12 GB / 16 GB / 24 GB+ | bf16, fewer swapped blocks | more of it on the GPU |
+
+The LoRA trains against the full bf16 model. Quantized checkpoints cannot be trained. Not verified on real
+hardware in the environment this was built in - report any trainer error text from the Monitor tab.
+
+### Low-VRAM trainer (second MOSS-Image engine) (optional - keep both, then compare)
+
+Under **Model type -> MOSS-Image** there is a **Trainer engine** switch:
+
+- **Current trainer** - the `moss-image` sd-scripts fork described above. Unchanged.
+- **Low-VRAM trainer** - a second trainer for 6-12 GB cards, bundled in `kohaku_backend/` (credits in THIRD_PARTY_NOTICES.md). It is a separate
+  trainer written for MOSS-Image: it trains straight on the ComfyUI **int8** files (DiT 5.4 GB, text encoder 9.7 GB, VAE)
+  and has its own memory planner, so a 10 GB card does not need to touch shared memory.
+
+Both engines use the same dataset folders, output folder and Monitor tab, so you can run the same data through each
+and compare. Nothing in the current trainer's settings is changed by choosing Low-VRAM trainer.
+
+Setting Low-VRAM trainer up:
+
+1. Backend tab -> **Set up Low-VRAM trainer environment** (one time; its own venv in `kohaku_backend/venv`, torch 2.13/2.14
+   picked for your driver's CUDA, plus the Low-VRAM trainer package). Then **Verify** - it runs its own check.
+2. Windows also needs the *Visual Studio Build Tools* ("Desktop development with C++" + Windows SDK); Verify tells you
+   if it is missing. 32 GB of RAM is recommended.
+3. Train tab -> MOSS-Image -> Trainer engine **Low-VRAM trainer**. Point **Weights folder** at your ComfyUI `models` folder
+   (the `diffusion_models`, `text_encoders` and `vae` sub-folders are found automatically) and press **Check files**.
+4. Press **Pick for my GPU** next to *VRAM layer* (a 10 GB card gets the 8 GB layer - the largest one that
+   fits), choose the adapter and optimizer, and start. Every Low-VRAM trainer setting has a field; anything without one can be
+   typed as `KNOB = value` in **Extra trainer knobs** (values are parsed as plain literals, never executed).
+
+A run writes `<output>/<name>.safetensors` (ComfyUI keys) and `<name>-lycoris.safetensors`, plus the full Low-VRAM trainer run
+folder (`config.json`, `log.txt`, `metrics.jsonl`, `samples`, `checkpoints`). A quick way to compare the engines: train
+20 steps with each on the same data and compare seconds per step and Task Manager -> GPU -> *Shared GPU memory*.
+
+Not verified on real hardware in the environment this was built in (no GPU there) - report any error text from the
+Monitor tab. Its licence has a naming clause that matters only if you redistribute Anima Studio with
+`kohaku_backend/` inside: see `THIRD_PARTY_NOTICES.md`.
+
+## AI tools in the Edit tab 
+
+The **Magic eraser** now carries the engine behind lama-cleaner - IOPaint 1.6.0 - inside the same editor. Your old
+OpenCV methods (Telea, Navier-Stokes) stay and need no setup. Everything else runs in its own environment
+(`edit_backend/venv`, Python 3.10/3.11), so it cannot disturb the app or the trainers.
+
+**Setup (once):** Backend tab -> *AI edit tools* -> **Set up AI edit environment**, then **Verify**. It installs PyTorch for
+your GPU, IOPaint and the background-removal packages (a few GB). Models download by themselves the first time you use
+them (or press *Download now*) into the folder shown under *AI tools -> AI engine -> Models folder*.
+
+What you get in the eraser (press **AI tools** for the side panel):
+- **Method list:** OpenCV, AI erase - LaMa, Anime LaMa, Manga, ZITS, MAT, FcF, LDM, MI-GAN - and AI replace / extend with
+  Stable Diffusion 1.5 / 2 / XL inpainting models, Anything, Realistic Vision, DreamShaper, Paint by Example,
+  InstructPix2Pix, Kandinsky, PowerPaint, or **Custom model** (a Hugging Face id or a checkpoint in the models folder).
+- **Every setting of the chosen model**, in the side panel: large-image strategy (Crop / Resize / Original) and its sizes,
+  LDM steps and sampler, ZITS wireframe, prompt and negative prompt, steps, guidance, sampler, seed, strength, mask blur,
+  match histograms, keep unmasked area, LCM-LoRA, work scale, crop box, ControlNet, BrushNet, PowerPaint, example image,
+  image guidance. Engine options: device (auto / cuda / cpu), full precision, low memory, offload to RAM, text encoder on
+  CPU, offline mode. The NSFW checker is **off** by default so Stable Diffusion never returns a black picture.
+- **Select tool (Segment Anything):** click an object to select it; right-click or Shift-click removes parts; MobileSAM,
+  SAM ViT-B/L/H, SAM-HQ and SAM 2 / 2.1 models.
+- **Extend tool (outpainting):** add pixels on any side or pick a ratio (square, 4:3, 16:9, ...); needs a Stable Diffusion model.
+- **Mask tools:** grow, shrink, invert; **Undo / Redo** (Ctrl+Z / Ctrl+Y).
+- **One-click tools:** remove background (anime cut-out, IS-Net, U2-Net, BRIA RMBG, BiRefNet) as a flat colour for
+  training images or a transparent PNG; upscale with Real-ESRGAN; restore faces with GFPGAN or RestoreFormer;
+  "select subject as mask".
+- **Preview first:** every AI result is shown before it is saved. **Hold to compare** shows the original; **Accept**
+  writes it (the original is backed up, *Revert to original* brings it back); **Discard** throws it away.
+- **AI batch** (Edit tab): run remove background, upscale, face restore - or the same painted mask - over a whole folder.
+
+**Keyboard (also shown along the bottom of the editor, `?` lists everything):** `Enter` erase / accept, `Esc` discard / close,
+`B` `R` `S` `E` `C` tools, `[` `]` or Alt+wheel brush size, wheel zoom to the cursor, `Space`+drag or middle-drag to move,
+`0` / `F` fit, `1` 100%, `+` `-` zoom, `G` / Shift+`G` grow / shrink the mask, `I` invert, `Ctrl+Z` / `Ctrl+Y` undo / redo,
+`H` hold to compare, `A` show / hide the AI panel, arrows previous / next picture. The editor fills the window, the AI panel
+can be dragged wider or narrower, and brush size, panel width and *Save as copy* are remembered.
+
+**Change the keys:** App settings (left sidebar) -> **Eraser keybinds**. Click a key, press the new one (Esc cancels); every
+action has two slots, `x` clears one, *Reset* / *Reset all* go back to the defaults. Giving a key that is already used moves it
+to the new action. Keys are saved automatically in your browser and in the app's settings file, and the editor's shortcut
+strip, `?` list and tooltips always show your current keys. Only Esc, the mouse wheel and middle-drag are fixed.
+
+The engine starts when you use a tool and stops by itself after 15 idle minutes (**Free GPU memory** stops it at once),
+so it does not hold VRAM while you train. Cancel stops a running job immediately. On a 10 GB card the erase models and
+the SD 1.5 inpainting models are comfortable; for SDXL turn on *Low memory mode* or *Offload*.
+
+Not verified on a GPU in the environment this was built in: the erase models, Segment Anything, the anime cut-out,
+Real-ESRGAN and GFPGAN were run for real on a CPU; Stable Diffusion models (blocked from downloading there) were not.
+
+## Natural-language captioners
+
+Caption tab -> *Natural-language captions*. All models are NSFW-friendly (JoyCaption, plus abliterated Qwen2.5-VL /
+Qwen3-VL) and every one runs on an 8 GB card in 4-bit. Choose a **VRAM profile** (Auto reads your GPU): low profiles
+load 4-bit and cap the image size, higher ones load 8-bit or bf16. The rule-based "from tags" captioner is kept.
